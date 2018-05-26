@@ -40,6 +40,38 @@ public:
     }
 };
 
+class Scad_vec: public Prox{
+private:
+    double gamma; // gamma_SCAD >= 2
+public:
+    Scad_vec(double g=3.7){
+        MoMALogger::debug("A vectorized Scad prox\n");
+        if(g<2) 
+        Rcpp::stop("Gamma for MCP should be larger than 2!\n");
+        gamma=g;
+    }
+    arma::vec prox(const arma::vec &x, double l){
+        int n = x.n_elem;
+        double gl = gamma*l;
+        arma::vec z(n);
+        arma::vec absx = arma::abs(x);
+        arma::vec sgnx = sign(x);
+        
+        arma::sp_mat D(x.n_elem,3);    // should be sp_umat, but errors when multiplying vec
+        for(int i = 0; i < n; i++){
+            uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
+            D(i,flag) = 1;
+        }
+        // MoMALogger::debug("D is constructed as\n") << mat(D);
+        // arma::vec x0 = arma::max(absx-l,zeros<vec>(n));
+        // MoMALogger::debug("Pass x0\n") << x0;
+        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
+        // MoMALogger::debug("Pass x1\n") << x1;
+        // Rcpp::Rcout << D.col(0);
+        z = D.col(0) % arma::max(absx-l,arma::zeros<vec>(n)) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2)%absx;    
+        return sgnx%z;
+    }
+};
 class Scad: public Prox{
 private:
     double gamma; // gamma_SCAD >= 2
@@ -52,35 +84,24 @@ public:
     }
     arma::vec prox(const arma::vec &x, double l){
         int n = x.n_elem;
+        double gl = gamma*l;
         arma::vec z(n);
         arma::vec absx = arma::abs(x);
         arma::vec sgnx = sign(x);
-        arma::sp_mat D(x.n_elem,3);    // should be sp_umat, but errors when multiplying vec
-        for(int i = 0; i < x.n_elem; i++){
-            uword flag = absx(i) > gamma * l ? 2 : (absx(i) > 2 * l ? 1: 0);
-            D(i,flag) = 1;
-        }
-        MoMALogger::debug("D is constructed as\n") << D;
-        
-    
-        return D * x;
-
-
-
-        // arma::vec flag = (absx >2);
         for (int i = 0; i < n; i++) // Probably need vectorization
         {
             // the implementation follows Variable Selection via Nonconcave Penalized Likelihood and its Oracle Properties
             // Jianqing Fan and Runze Li, formula(2.8)
             z(i) = absx(i) > gamma * l ? absx(i) : (absx(i) > 2 * l ? //(gamma-1)/(gamma-2) * THRES_P(absx(i),gamma*l/(gamma-1)) 
-                                                    ((gamma - 1) * absx(i) - gamma * l)/ (gamma - 2)
+                                                    ((gamma - 1) * absx(i) - gl)/ (gamma - 2)
                                                     : THRES_P(absx(i),l)
                                                     );
         }
         return z%sgnx;    
     }
-};
 
+    
+};
 
 class Mcp: public Prox{
 private:
@@ -165,6 +186,14 @@ arma::vec prox_scad(const arma::vec &x, double l, double g=3.7)
     return a.prox(x,l);
 };
 
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::export]]
+arma::vec prox_scadvec(const arma::vec &x, double l, double g=3.7)
+{
+    Scad a(g);
+    return a.prox(x,l);
+};
+
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
@@ -186,10 +215,8 @@ arma::vec prox_nnlasso(const arma::vec &x, double l)
 // [[Rcpp::export]]
 void test()
 {
-    arma::uvec x = {1,2,3,3};
-    arma::mat a(4,4);
-    a.randn();
-    Rcpp::Rcout << x << a << "\n";
-    Rcpp::Rcout << a*x;
+    arma::umat a(5,5);
+    arma::vec x(5,0);
+ 
     return;
 };

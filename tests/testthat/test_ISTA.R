@@ -31,7 +31,10 @@ test_that("Equal to SVD when no penalty", {
 test_that("Closed form solution when no sparsity",{
     # TODO
 })
+
+# simple test for group lasso
 x <- c(3,4,5,12,3,4,12)
 gp <- as.factor(c(1,1,2,2,3,3,3))
 prox_grplasso(x,gp,8)
 test()
+
