@@ -36,7 +36,7 @@ public:
         MoMALogger::debug("A Non-negative Lasso prox\n");
     }
     arma::vec prox(const arma::vec &x, double l){
-        return arma::max(abs(x) - l, zeros(arma::size(x)));
+        return arma::max(x - l, zeros(arma::size(x)));
     }
 };
 
@@ -137,7 +137,7 @@ arma::vec prox_mcp(const arma::vec &x, double l, double g=4)
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
-arma::vec prox_nnlasso(const arma::vec &x, double l, double g=4)
+arma::vec prox_nnlasso(const arma::vec &x, double l)
 {
     NNLasso a;
     return a.prox(x,l);

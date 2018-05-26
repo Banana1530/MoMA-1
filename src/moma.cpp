@@ -195,6 +195,9 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
         res = new Scad(gamma);
     else if (s.compare("MCP") == 0)
         res = new Mcp(gamma);
+    else if(s.compare("NNLASSO") == 0){
+        res = new NNLasso();
+    }
     else
         MoMALogger::error("Your sparse penalty is not provided!\n");
     return res;
