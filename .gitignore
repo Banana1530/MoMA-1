@@ -44,4 +44,4 @@ figs/*
 .vscode/settings.json
 
 # visualization files
-test/testthat/*.pdf
+tests/testthat/*.pdf
