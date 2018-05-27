@@ -16,6 +16,9 @@ inline arma::vec soft_thres(const arma::vec &x, double l){
 
 class Prox{
 public:
+    Prox(){
+        MoMALogger::debug("A Prox!\n");
+    }
     virtual arma::vec prox(const arma::vec &x, double l){
         return x;   // to be tested, return a reference might cause extra copying.
     };
@@ -165,6 +168,7 @@ private:
                     // should be integer, probably use arma::sp_umat; it will cause error though, when it multipies a vec
 public:
     GrpLasso(const arma::vec &x){   // takes in a factor
+        MoMALogger::debug("A Group Lasso prox\n");
         D = sp_mat(int(x.max()),x.n_elem);  // density will be 1/p = 1/x.n_elem
         for(int i = 0; i < x.n_elem; i++){
             uword g = x(i) - 1; // the i-th parameter is in g-th group. Note factor in R starts from 1

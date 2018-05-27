@@ -65,6 +65,6 @@ norm(X)/norm(eps)
 image(X)
 res <- svd(X)
 show_vec(res$v[,1],n1,n2)
-res1 <- sfpca(X=X,
-              "GRPLASSO","GRPLASSO",
-              solver='ISTA')
+#res1 <- sfpca(X=X,
+#              "GRPLASSO","GRPLASSO",
+#              solver='ISTA')

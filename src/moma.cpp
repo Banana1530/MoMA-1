@@ -111,7 +111,7 @@ public:
         check_valid();
         MoMALogger::info("Setting up PCA\n");
 
-       
+   
         n = X.n_rows;
         p = X.n_cols;
 
@@ -195,7 +195,7 @@ Solver MoMA::string_to_SolverT(const std::string &s){
 }
 
 Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group){   // free it!
-    Prox* res = nullptr;
+    Prox* res = new Prox();
     if (s.compare("LASSO") == 0)
        res = new Lasso();
     else if (s.compare("NONNEGLASSO") == 0)
@@ -211,7 +211,7 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec 
         res = new GrpLasso(group);
     }
     else
-        MoMALogger::error("Your sparse penalty is not provided!\n");
+        MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `Prox` by default\n");
     return res;
 }
 
@@ -221,10 +221,12 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec 
 Rcpp::List sfpca(
     const arma::mat &X ,
 
-    arma::mat Omega_u=Rcpp::IntegerMatrix::create(),arma::mat Omega_v=Rcpp::IntegerMatrix::create(),  /* any idea to set up default values for these matrices? */ // Handle it on the R side
+    arma::mat Omega_u,
+    arma::mat Omega_v,  /* any idea to set up default values for these matrices? */ 
+                                               
     double alpha_u = 0,double alpha_v = 0,
 
-    std::string P_u = "LASSO",std::string P_v = "LASSO",
+    std::string P_u = "none",std::string P_v = "none",
     double lambda_u = 0,double lambda_v = 0,
     double gamma = 3.7,
 
@@ -233,6 +235,7 @@ Rcpp::List sfpca(
     long MAX_ITER = 1e+3,
     std::string solver = "ISTA"
 )
+                                                  
 {
     MoMALogger::debug("Omega_u is:") << Omega_u;
     MoMA model(X,  
@@ -241,7 +244,12 @@ Rcpp::List sfpca(
         lambda_v,lambda_u,
         gamma,
         /* smoothness */
-        Omega_u,Omega_v,
+          /* About setting default value: Handle it on the R side
+                                                     This way is safe. When alpha != 0, we will ask user to specifiy the matrices.
+                                                     When alpha=0, we will not encounter dimenstion discompatibility, 
+                                                     because we special case it in the `MoMA.fit()` function, thus avoiding multiplying them with vectors.
+                                                     */
+        Omega_u,Omega_v, 
         alpha_u,alpha_v,
         /* grouping */
         group_u,group_v,
