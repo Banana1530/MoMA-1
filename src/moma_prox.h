@@ -58,6 +58,12 @@ public:
         arma::vec sgnx = sign(x);
         
         arma::umat D(x.n_elem,3);    // if we use sp_mat, it becomes slower; it also errors if we use sp_umat
+        // MoMALogger::debug("D is constructed as\n") << mat(D);
+        // arma::vec x0 = arma::max(absx-l,zeros<vec>(n));
+        // MoMALogger::debug("Pass x0\n") << x0;
+        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
+        // MoMALogger::debug("Pass x1\n") << x1;
+        // Rcpp::Rcout << D.col(0);
         for(int i = 0; i < n; i++){
             uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
             D(i,flag) = 1;
@@ -66,12 +72,6 @@ public:
         return sgnx%z;
     }
 };
-        // MoMALogger::debug("D is constructed as\n") << mat(D);
-        // arma::vec x0 = arma::max(absx-l,zeros<vec>(n));
-        // MoMALogger::debug("Pass x0\n") << x0;
-        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
-        // MoMALogger::debug("Pass x1\n") << x1;
-        // Rcpp::Rcout << D.col(0);
 
 
 class Scad: public Prox{
@@ -222,7 +222,7 @@ arma::vec prox_nnlasso(const arma::vec &x, double l)
 void test()
 {
     arma::umat a(5,5);
-    arma::vec x(5,0);
+    arma::vec x(5);
  
     return;
 };
