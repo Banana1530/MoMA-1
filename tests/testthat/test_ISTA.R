@@ -40,5 +40,31 @@ test()
 
 
 # group PCA
-a <- matrix(0,ncol=20,nrow = 19)
-
+show_vec <- function(v,n1,n2){
+    image(matrix(v,nrow=n1,ncol=n2,byrow=FALSE),
+          col = grey(seq(0, 1, length = 256)))
+}
+n1 <- 19
+n2 <- 20
+p <- n1*n2
+n <- 150
+a <- matrix(1,ncol=n2,nrow = n1)
+for(i in 1:n1/2){
+    for(j in 1:n2/2)
+        a[j,i] = 30
+}
+image(a)
+v = as.vector(a)
+v = v/sqrt(sum(v^2))
+show_vec(v,n1,n2)
+u = runif(n)
+u = u/sqrt(sum(u^2))
+eps <- matrix(rnorm(n*p),n,p)/20
+X <- u %*% t(v) + eps
+norm(X)/norm(eps)
+image(X)
+res <- svd(X)
+show_vec(res$v[,1],n1,n2)
+res1 <- sfpca(X=X,
+              "GRPLASSO","GRPLASSO",
+              solver='ISTA')

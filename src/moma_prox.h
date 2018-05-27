@@ -16,8 +16,12 @@ inline arma::vec soft_thres(const arma::vec &x, double l){
 
 class Prox{
 public:
-    virtual arma::vec prox(const arma::vec &x, double l)=0;
-    virtual ~Prox() = default;
+    virtual arma::vec prox(const arma::vec &x, double l){
+        return x;   // to be tested, return a reference might cause extra copying.
+    };
+    virtual ~Prox() {
+        MoMALogger::debug("Releasing Prox\n");
+    };
 };
 
 class Lasso: public Prox{
@@ -27,6 +31,9 @@ public:
     }
     arma::vec prox(const arma::vec &x, double l){
         return soft_thres(x,l);
+    }
+    ~Lasso(){
+        MoMALogger::debug("Releasing Lasso\n");
     }
 };
 
@@ -38,6 +45,9 @@ public:
     arma::vec prox(const arma::vec &x, double l){
         return arma::max(x - l, zeros<vec>(x.n_elem));
     }
+    ~NNLasso(){
+        MoMALogger::debug("Releasing NNLasso\n");
+    }
 };
 
 class Scad_vec: public Prox{
@@ -47,8 +57,11 @@ public:
     Scad_vec(double g=3.7){
         MoMALogger::debug("A vectorized Scad prox\n");
         if(g<2) 
-        Rcpp::stop("Gamma for MCP should be larger than 2!\n");
+            MoMALogger::error("Gamma for MCP should be larger than 2!\n");
         gamma=g;
+    }
+     ~Scad_vec(){
+        MoMALogger::debug("Releasing Scad_vec\n");
     }
     arma::vec prox(const arma::vec &x, double l){
         int n = x.n_elem;
@@ -83,6 +96,9 @@ public:
         if(g<2) 
         Rcpp::stop("Gamma for MCP should be larger than 2!\n");
         gamma=g;
+    }
+     ~Scad(){
+        MoMALogger::debug("Releasing Scad\n");
     }
     arma::vec prox(const arma::vec &x, double l){
         int n = x.n_elem;
@@ -136,11 +152,14 @@ public:
         }
         return z%sgnx;    
     }
+    ~Mcp(){
+        MoMALogger::debug("Releasing Mcp\n");
+    }
 };
 
 class GrpLasso: public Prox{
 private:
-    arma::sp_mat D;  // Probably not using sparsity would be faster
+    arma::sp_mat D;  // Probably not using sparse matrix would be faster, TODO
                     // a boolean matrix, D \in R^{g \times p}, g is the number of groups, 
                     // D_ji = 1 means \beta_i in group j.
                     // should be integer, probably use arma::sp_umat; it will cause error though, when it multipies a vec
@@ -151,8 +170,11 @@ public:
             uword g = x(i) - 1; // the i-th parameter is in g-th group. Note factor in R starts from 1
             D(g,i) = 1;
         }
+        MoMALogger::debug("A GrpLasoo!\n");
     }
-
+    ~GrpLasso(){
+        MoMALogger::debug("Releasing GrpLasso\n");
+    }
     arma::vec prox(const arma::vec &x, double l){
 
         MoMALogger::debug("D is initialized as ") << D;
