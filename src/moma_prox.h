@@ -140,14 +140,13 @@ public:
 
 class GrpLasso: public Prox{
 private:
-    arma::sp_mat D;    
+    arma::sp_mat D;  // Probably not using sparsity would be faster
                     // a boolean matrix, D \in R^{g \times p}, g is the number of groups, 
                     // D_ji = 1 means \beta_i in group j.
                     // should be integer, probably use arma::sp_umat; it will cause error though, when it multipies a vec
-
 public:
-    GrpLasso(const arma::vec &x){
-        D = sp_mat(int(x.max()),x.n_elem);
+    GrpLasso(const arma::vec &x){   // takes in a factor
+        D = sp_mat(int(x.max()),x.n_elem);  // density will be 1/p = 1/x.n_elem
         for(int i = 0; i < x.n_elem; i++){
             uword g = x(i) - 1; // the i-th parameter is in g-th group. Note factor in R starts from 1
             D(g,i) = 1;

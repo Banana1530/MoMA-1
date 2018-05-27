@@ -38,3 +38,7 @@ gp <- as.factor(c(1,1,2,2,3,3,3))
 prox_grplasso(x,gp,8)
 test()
 
+
+# group PCA
+a <- matrix(0,ncol=20,nrow = 19)
+

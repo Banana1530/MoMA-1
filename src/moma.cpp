@@ -62,7 +62,8 @@ private:
     /* matrix size */
     int n;
     int p;
-
+    double alpha_u;
+    double alpha_v;
     double prox_u_step; 
     double prox_v_step;
     double grad_u_step;
@@ -91,7 +92,7 @@ public:
     }
     void check_valid();
     Solver string_to_SolverT(const std::string &s); // String to solver type {ISTA,FISTA}
-    Prox* string_to_Proxptr(const std::string &s,double gamma);
+    Prox* string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group);
    
     // turn user input into what we need to run the algorithm
     MoMA(const arma::mat &X_,   // note it is a reference
@@ -101,7 +102,9 @@ public:
         double gamma,
         /* smoothness */
         arma::mat Omega_u,arma::mat Omega_v,
-        double alpha_u,double alpha_v,
+        double i_alpha_u,double i_alpha_v,
+        /* grouping */
+        const arma::vec &group_u,const arma::vec &group_v,
         /* training para. */
         double i_EPS,long i_MAX_ITER,std::string i_solver):X(X_) // X has to be written in the initialization list
     {
@@ -122,10 +125,14 @@ public:
         arma::vec s;
         arma::mat V;
         arma::svd(U, s, V, X);
-        S_u.eye(arma::size(Omega_u));
-        S_v.eye(arma::size(Omega_v));
-        S_u += n * alpha_u * Omega_u;
-        S_v += p * alpha_v * Omega_v;
+        S_u.eye(n,n);
+        S_v.eye(p,p);
+        alpha_u = i_alpha_u;
+        alpha_v = i_alpha_v;
+        if(i_alpha_u != 0.0)
+            S_u += n * i_alpha_u * Omega_u;
+        if(i_alpha_v != 0.0)
+            S_v += p * i_alpha_v * Omega_v;
 
         // Step 1.2: find Lu,Lv
         double Lu = arma::eig_sym(S_u).max() + 0.01; // +0.01 for convergence
@@ -142,8 +149,8 @@ public:
         u = U.col(0);
 
         // Step 3: match proximal operator
-        prox_u = string_to_Proxptr(P_u,gamma);
-        prox_v = string_to_Proxptr(P_v,gamma);
+        prox_u = string_to_Proxptr(P_u,gamma,group_u);
+        prox_v = string_to_Proxptr(P_v,gamma,group_v);
 
         // Step 4: match gradient operator
 
@@ -170,6 +177,8 @@ public:
 
 void MoMA::check_valid(){
     MoMALogger::info("Checking input validity\n");
+
+    // grouping vector should be a factor!
 }
 
 Solver MoMA::string_to_SolverT(const std::string &s){
@@ -185,7 +194,7 @@ Solver MoMA::string_to_SolverT(const std::string &s){
     return res;
 }
 
-Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
+Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group){   // free it!
     Prox* res = nullptr;
     if (s.compare("LASSO") == 0)
        res = new Lasso();
@@ -198,6 +207,9 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
     else if(s.compare("NNLASSO") == 0){
         res = new NNLasso();
     }
+    else if(s.compare("GRPLASSO") == 0){
+        res = new GrpLasso(group);
+    }
     else
         MoMALogger::error("Your sparse penalty is not provided!\n");
     return res;
@@ -209,18 +221,20 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
 Rcpp::List sfpca(
     const arma::mat &X ,
 
-    arma::mat Omega_u,arma::mat Omega_v,  /* any idea to set up default values for these matrices? */
+    arma::mat Omega_u=Rcpp::IntegerMatrix::create(),arma::mat Omega_v=Rcpp::IntegerMatrix::create(),  /* any idea to set up default values for these matrices? */ // Handle it on the R side
     double alpha_u = 0,double alpha_v = 0,
 
     std::string P_u = "LASSO",std::string P_v = "LASSO",
     double lambda_u = 0,double lambda_v = 0,
     double gamma = 3.7,
 
+    arma::vec group_u=Rcpp::IntegerVector::create(0), arma::vec group_v=Rcpp::IntegerVector::create(0),
     double EPS = 1e-6,  
     long MAX_ITER = 1e+3,
     std::string solver = "ISTA"
 )
 {
+    MoMALogger::debug("Omega_u is:") << Omega_u;
     MoMA model(X,  
         /* sparsity*/
          P_v,P_u, 
@@ -229,6 +243,8 @@ Rcpp::List sfpca(
         /* smoothness */
         Omega_u,Omega_v,
         alpha_u,alpha_v,
+        /* grouping */
+        group_u,group_v,
         /* training para. */
         EPS,
         MAX_ITER,
@@ -287,7 +303,13 @@ void MoMA::fit(){
                     iter_u++;
                     oldu2 = u;  
                     // gradient step
-                    u = u + grad_u_step * (X*v - S_u*u);  // TODO: special case when alpha_u = 0 => S_u = I
+                    if(alpha_u == 0.0){
+                        u = u + grad_u_step * (X*v - u);  // TODO: special case when alpha_u = 0 => S_u = I
+
+                    }else{
+                        u = u + grad_u_step * (X*v - S_u*u);  // TODO: special case when alpha_u = 0 => S_u = I
+
+                    }
                     // proxiaml step
                     u = prox_u->prox(u,prox_u_step);
                     // nomalize w.r.t S_u
@@ -305,7 +327,11 @@ void MoMA::fit(){
                     iter_v++;
                     oldv2 = v;
                     // gradient step
-                    v = v + grad_v_step * (X.t()*u - S_v*v);    // TODO: special case
+                    if(alpha_v == 0.0){
+                        v = v + grad_v_step * (X.t()*u - v);    // TODO: special case
+                    }else{
+                       v = v + grad_v_step * (X.t()*u - S_v*v);    // TODO: special case
+                    }
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
                     double mn = mat_norm(v, S_v);
