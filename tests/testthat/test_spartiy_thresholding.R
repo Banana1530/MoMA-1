@@ -30,8 +30,8 @@ vec <- function(p){
     prox_scadvec(x,1,3)
 }
 library(rbenchmark)
-rep <- 200
-pset = exp(seq(15,17,0.1))
+rep <- 100
+pset = exp(seq(5,10,0.1))  # a set of `p`s
 np = length(pset)
 store <- matrix(nrow = 2, ncol = np)
 for(i in 1:np){
@@ -39,5 +39,5 @@ for(i in 1:np){
     res <- benchmark(vec(pset[i]),novec(pset[i]), replications=rep,order="test")
     store[,i] = res$elapsed
 }
-plot(log(store[,1]),type='l')
-lines(log(store[,2]),col="red")
+plot((store[1,]),type='l')
+lines((store[2,]),col="red")
