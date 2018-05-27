@@ -36,10 +36,34 @@ class NNLasso: public Prox{
     }
 public:
     arma::vec prox(const arma::vec &x, double l){
+<<<<<<< HEAD
         return arma::max(abs(x) - l, zeros(arma::size(x)));
     }
 };
 
+=======
+        int n = x.n_elem;
+        double gl = gamma*l;
+        arma::vec z(n);
+        arma::vec absx = arma::abs(x);
+        arma::vec sgnx = sign(x);
+        
+        arma::sp_mat D(x.n_elem,3);    // should be sp_umat, but errors when multiplying vec
+        for(int i = 0; i < n; i++){
+            uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
+            D(i,flag) = 1;
+        }
+        // MoMALogger::debug("D is constructed as\n") << mat(D);
+        // arma::vec x0 = arma::max(absx-l,zeros<vec>(n));
+        // MoMALogger::debug("Pass x0\n") << x0;
+        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
+        // MoMALogger::debug("Pass x1\n") << x1;
+        // Rcpp::Rcout << D.col(0);
+        z = D.col(0) % arma::max(absx-l,arma::zeros<vec>(n)) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2)%absx;    
+        return sgnx%z;
+    }
+};
+>>>>>>> parent of 1d471f4... Test with vectorization
 class Scad: public Prox{
 private:
     double gamma; // gamma_SCAD >= 2
@@ -101,6 +125,25 @@ public:
         }
         return z%sgn;    
     }
+<<<<<<< HEAD
+=======
+     arma::vec prox(const arma::vec &x, double l){
+        MoMALogger::debug("D is initialized as ") << D;
+        arma::vec to_be_thres = D.t() * arma::sqrt(D * arma::square(x));
+        MoMALogger::debug("norm for each group is\n") << to_be_thres;
+        return sign(x) % arma::max(to_be_thres - l,zeros<vec>(x.n_elem));
+     }
+    
+};
+
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::export]]
+arma::vec prox_grplasso(const arma::vec &x, const arma::vec &g,double l)
+{
+    GrpLasso a(g);
+    
+    return a.prox(x,l);
+>>>>>>> parent of 1d471f4... Test with vectorization
 };
 
 // [[Rcpp::depends(RcppArmadillo)]]
@@ -120,6 +163,17 @@ arma::vec prox_scad(const arma::vec &x, double l, double g=3.7)
     return a.prox(x,l);
 };
 
+<<<<<<< HEAD
+=======
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::export]]
+arma::vec prox_scadvec(const arma::vec &x, double l, double g=3.7)
+{
+    Scad a(g);
+    return a.prox(x,l);
+};
+
+>>>>>>> parent of 1d471f4... Test with vectorization
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
