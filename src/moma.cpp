@@ -12,10 +12,6 @@ enum class Solver{
 };
 
 
-double TOL = 1e-8; // define how close two float point numbers are to be regarded as equal
-    
-
-
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
 double mat_norm(const arma::vec &u, const arma::mat &S_u)   // TODO: special case when S_u = I, i.e., alpha_u = 0.
@@ -151,12 +147,8 @@ public:
 
     void fit();
     Rcpp::List wrap(){ 
-        if(norm(u)!=0){
-            u = u / norm(u);
-        }
-        if(norm(v)!=0){
-            v = v / norm(v);
-        }
+        u = u / norm(u);
+        v = v / norm(v);
         double d = as_scalar(u.t() * X * v);
             return Rcpp::List::create(
             Rcpp::Named("u") = u,
@@ -195,9 +187,6 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
         res = new Scad(gamma);
     else if (s.compare("MCP") == 0)
         res = new Mcp(gamma);
-    else if(s.compare("NNLASSO") == 0){
-        res = new NNLasso();
-    }
     else
         MoMALogger::error("Your sparse penalty is not provided!\n");
     return res;
@@ -291,13 +280,12 @@ void MoMA::fit(){
                     // proxiaml step
                     u = prox_u->prox(u,prox_u_step);
                     // nomalize w.r.t S_u
-                    double mn = mat_norm(u, S_u);
-                    mn > 0 ? u /= mn : u.zeros();    // Sometimes mat_norm(u,S_u) is so close to zero that u becomes NaN
+                    norm(u) > 0 ? u /= mat_norm(u, S_u) : u.zeros();    // Sometimes mat_norm(u,S_u) is so close to zero that u becomes NaN
 
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
                 //    if(iter_u %100 == 0)
-                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                        MoMALogger::debug("---update u ") << iter_u << "--\n" 
+                            << "in_u_tol:" << in_u_tol << "\t iter" << iter_u;
                 }
 
                 while (in_v_tol > EPS)
@@ -308,13 +296,11 @@ void MoMA::fit(){
                     v = v + grad_v_step * (X.t()*u - S_v*v);    // TODO: special case
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
-                    double mn = mat_norm(v, S_v);
-                  
-                    mn > 0 ? v /= mn : v.zeros();
+                    norm(v) > 0 ? v /= mat_norm(v, S_v) : v.zeros();
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
                     // if(iter_v %100 == 0)
-                        MoMALogger::debug("--- v ") << iter_v << "---\n"
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                        MoMALogger::debug("---update v ") << iter_v << "---\n"
+                            << "in_v_tol:" << in_v_tol << "\t iter" << iter_v;
                 }
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
