@@ -354,11 +354,77 @@ void MoMA::fit(){
             }
         }
         else if (solver_type == Solver::FISTA){
-            MoMALogger::error("FISTA is not provided yet!\n");
+            MoMALogger::info("Running FISTA!\n");
+            MoMALogger::debug("==Before the loop: training setup==\n") 
+                    << "\titer" << iter
+                    << "\tEPS:" << EPS 
+                    << "\tMAX_ITER:" << MAX_ITER << "\n";
+            while (out_tol > EPS && iter < MAX_ITER)
+            {
+                
+                oldu1 = u;  
+                oldv1 = v;
+                in_u_tol = 1;
+                in_v_tol = 1;
+                iter_u = 0;
+                iter_v = 0;
+
+                double t = 1;
+                while (in_u_tol > EPS)
+                {
+                    iter_u++;
+                    oldu2 = u;  
+                    // gradient step
+                    if(alpha_u == 0.0){
+                        u = u + grad_u_step * (X*v - u);  
+
+                    }else{
+                        u = u + grad_u_step * (X*v - S_u*u);  
+                    }
+                    // proxiaml step
+                    u = prox_u->prox(u,prox_u_step);
+                    // nomalize w.r.t S_u
+                    double mn = mat_norm(u, S_u);
+                    mn > 0 ? u /= mn : u.zeros();    // 
+
+                    in_u_tol = norm(u - oldu2) / norm(oldu2);
+                //    if(iter_u %100 == 0)
+                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
+                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                }
+
+                t = 1;
+                while (in_v_tol > EPS)
+                {
+                    iter_v++;
+                    oldv2 = v;
+                    // gradient step
+                    if(alpha_v == 0.0){
+                        v = v + grad_v_step * (X.t()*u - v);   
+                    }else{
+                       v = v + grad_v_step * (X.t()*u - S_v*v);  
+                    }
+                    // proximal step
+                    v = prox_v->prox(v,prox_v_step);
+                    double mn = mat_norm(v, S_v);
+                  
+                    mn > 0 ? v /= mn : v.zeros();
+                    in_v_tol = norm(v - oldv2) / norm(oldv2);
+                    // if(iter_v %100 == 0)
+                        MoMALogger::debug("--- v ") << iter_v << "---\n"
+                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                }
+
+                out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
+                iter++;
+                MoMALogger::debug("--Finish iter:") << iter << "---\n";
+                MoMALogger::error("FISTA is not provided yet!\n");
+            }
         }
         else{
             MoMALogger::error("Your choice of solver is not provided yet!");
         }
         MoMALogger::debug("==After the outer loop!==\n") 
                    << "out_tol:" << out_tol << "\t iter" << iter;
-    }
+}
+    

@@ -2,8 +2,8 @@ context("ISTA Tests")
 #-------------------
 # Generate data
 #-------------------
-n <- 3 # set n != p to test bugs
-p <- 5
+n <- 200 # set n != p to test bugs
+p <- 199
 O_v <- diag(p)
 O_u <- diag(n)
 set.seed(32)
@@ -47,8 +47,8 @@ show_vec <- function(v,n1,n2){
           col=grey(seq(0, 1, length = 256)))
 }
 # generate data
-n1 <- 220
-n2 <- 200
+n1 <- 20
+n2 <- 19
 p <- n1*n2
 n <- 150
 a <- matrix(30,ncol=n2,nrow = n1)
@@ -65,8 +65,8 @@ plot(v,type="l")
 
 group <- matrix(1,ncol=n2,nrow = n1)
 for(i in seq(1,n1,4)){
+    if(i+4<n2)
     group[,i:(i+4)] <- i
-
 }
 image(group)
 group = as.vector(group)
@@ -94,7 +94,7 @@ for(p in spset){
                   group_v = group,
                   lambda_v=p,
                   P_v="GRPLASSO",
-                  solver='ISTA')
+                  solver='FISTA')
     par(mfrow=c(1,2))
     plot(-res1$v[,1],type="l",main=paste(p),ylim=c(-.06,.09))
     show_vec(res1$v[,1],n1,n2)
