@@ -40,31 +40,67 @@ test()
 
 
 # group PCA
+
+# util function
 show_vec <- function(v,n1,n2){
     image(matrix(v,nrow=n1,ncol=n2,byrow=FALSE),
-          col = grey(seq(0, 1, length = 256)))
+          col=grey(seq(0, 1, length = 256)))
 }
-n1 <- 19
-n2 <- 20
+# generate data
+n1 <- 220
+n2 <- 200
 p <- n1*n2
 n <- 150
-a <- matrix(1,ncol=n2,nrow = n1)
-for(i in 1:n1/2){
-    for(j in 1:n2/2)
-        a[j,i] = 30
+a <- matrix(30,ncol=n2,nrow = n1)
+for(i in 1:n1){
+    for(j in 1:n2/2){
+        a[i,j] = 1
+
+    }
 }
 image(a)
 v = as.vector(a)
 v = v/sqrt(sum(v^2))
-show_vec(v,n1,n2)
+plot(v,type="l")
+
+group <- matrix(1,ncol=n2,nrow = n1)
+for(i in seq(1,n1,4)){
+    group[,i:(i+4)] <- i
+
+}
+image(group)
+group = as.vector(group)
+group = factor(group)
+# another side
 u = runif(n)
 u = u/sqrt(sum(u^2))
-eps <- matrix(rnorm(n*p),n,p)/20
+# noise and X
+eps <- matrix(rnorm(n*p),n,p)/100
 X <- u %*% t(v) + eps
 norm(X)/norm(eps)
-image(X)
+
+# svd as benchmark
 res <- svd(X)
+plot(-res$v[,1],type="l")
 show_vec(res$v[,1],n1,n2)
-#res1 <- sfpca(X=X,
-#              "GRPLASSO","GRPLASSO",
-#              solver='ISTA')
+
+# group lasso
+O_v=matrix(0,p,p)
+O_u=matrix(0,n,n)
+spset=seq(0,0.8,0.05)
+for(p in spset){
+    res1 <- sfpca(X=X,
+                  Omega_u=O_u,Omega_v=O_v,
+                  group_v = group,
+                  lambda_v=p,
+                  P_v="GRPLASSO",
+                  solver='ISTA')
+    par(mfrow=c(1,2))
+    plot(-res1$v[,1],type="l",main=paste(p),ylim=c(-.06,.09))
+    show_vec(res1$v[,1],n1,n2)
+
+}
+
+
+
+

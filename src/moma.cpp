@@ -12,9 +12,6 @@ enum class Solver{
 };
 
 
-double TOL = 1e-8; // define how close two float point numbers are to be regarded as equal
-    
-
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
@@ -216,7 +213,7 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec 
 }
 
 
-// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(Matrix,RcppArmadillo)]]
 // [[Rcpp::export]]
 Rcpp::List sfpca(
     const arma::mat &X ,
@@ -237,7 +234,7 @@ Rcpp::List sfpca(
 )
                                                   
 {
-    MoMALogger::debug("Omega_u is:") << Omega_u;
+   // MoMALogger::debug("Omega_u is:") << Omega_u;
     MoMA model(X,  
         /* sparsity*/
          P_v,P_u, 
@@ -312,17 +309,17 @@ void MoMA::fit(){
                     oldu2 = u;  
                     // gradient step
                     if(alpha_u == 0.0){
-                        u = u + grad_u_step * (X*v - u);  // TODO: special case when alpha_u = 0 => S_u = I
+                       
+                        u = u + grad_u_step * (X*v - u);  
 
                     }else{
-                        u = u + grad_u_step * (X*v - S_u*u);  // TODO: special case when alpha_u = 0 => S_u = I
-
+                        u = u + grad_u_step * (X*v - S_u*u);  
                     }
                     // proxiaml step
                     u = prox_u->prox(u,prox_u_step);
                     // nomalize w.r.t S_u
                     double mn = mat_norm(u, S_u);
-                    mn > 0 ? u /= mn : u.zeros();    // Sometimes mat_norm(u,S_u) is so close to zero that u becomes NaN
+                    mn > 0 ? u /= mn : u.zeros();    // 
 
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
                 //    if(iter_u %100 == 0)
@@ -336,9 +333,9 @@ void MoMA::fit(){
                     oldv2 = v;
                     // gradient step
                     if(alpha_v == 0.0){
-                        v = v + grad_v_step * (X.t()*u - v);    // TODO: special case
+                        v = v + grad_v_step * (X.t()*u - v);   
                     }else{
-                       v = v + grad_v_step * (X.t()*u - S_v*v);    // TODO: special case
+                       v = v + grad_v_step * (X.t()*u - S_v*v);  
                     }
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);

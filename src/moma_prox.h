@@ -73,7 +73,7 @@ public:
         arma::vec absx = arma::abs(x);
         arma::vec sgnx = sign(x);
         
-        arma::umat D(x.n_elem,3);    // if we use sp_mat, it becomes slower; it also errors if we use sp_umat
+        arma::mat D(x.n_elem,3);    // if we use sp_mat, it becomes slower; it also errors if we use sp_umat, gives wrong result if umat
         // MoMALogger::debug("D is constructed as\n") << mat(D);
         // arma::vec x0 = arma::max(absx-l,zeros<vec>(n));
         // MoMALogger::debug("Pass x0\n") << x0;
@@ -181,9 +181,10 @@ public:
     }
     arma::vec prox(const arma::vec &x, double l){
 
-        MoMALogger::debug("D is initialized as ") << D;
+       // MoMALogger::debug("D is initialized as ") << D;
         arma::vec to_be_thres = D.t() * arma::sqrt(D * arma::square(x));
-        MoMALogger::debug("norm for each group is\n") << to_be_thres;
+    //  MoMALogger::debug("lambda is ") << l;
+       // MoMALogger::debug("norm for each group is\n") << to_be_thres;
         return sign(x) % arma::max(to_be_thres - l,zeros<vec>(x.n_elem));
     }
     
