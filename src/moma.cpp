@@ -127,9 +127,11 @@ public:
         alpha_u = i_alpha_u;
         alpha_v = i_alpha_v;
         if(i_alpha_u != 0.0)
-            S_u += n * i_alpha_u * Omega_u;
-        if(i_alpha_v != 0.0)
-            S_v += p * i_alpha_v * Omega_v;
+       {     MoMALogger::debug("Here construct Su");
+            S_u += n * i_alpha_u * Omega_u;}
+        if(i_alpha_v != 0.0){
+            MoMALogger::debug("Here construct Sv");
+            S_v += p * i_alpha_v * Omega_v;}
 
         // Step 1.2: find Lu,Lv
         double Lu = arma::eig_sym(S_u).max() + 0.01; // +0.01 for convergence
@@ -303,7 +305,7 @@ void MoMA::fit(){
                 in_v_tol = 1;
                 iter_u = 0;
                 iter_v = 0;
-                while (in_u_tol > EPS)
+                while (in_u_tol > EPS && iter_u < MAX_ITER)
                 {
                     iter_u++;
                     oldu2 = u;  
@@ -327,7 +329,7 @@ void MoMA::fit(){
                             << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
                 }
 
-                while (in_v_tol > EPS)
+                while (in_v_tol > EPS && iter_v < MAX_ITER)
                 {
                     iter_v++;
                     oldv2 = v;
@@ -345,7 +347,7 @@ void MoMA::fit(){
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
                     // if(iter_v %100 == 0)
                         MoMALogger::debug("--- v ") << iter_v << "---\n"
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter_v << "\tmat_norm:" << mn;
                 }
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
@@ -370,10 +372,12 @@ void MoMA::fit(){
                 iter_v = 0;
 
                 double t = 1;
-                while (in_u_tol > EPS)
+                while (in_u_tol > EPS && iter_u < MAX_ITER)
                 {
                     iter_u++;
                     oldu2 = u;  
+                    double oldt = t;
+                    t = 0.5 * (1 + sqrt(1 + 4 * oldt*oldt));
                     // gradient step
                     if(alpha_u == 0.0){
                         u = u + grad_u_step * (X*v - u);  
@@ -383,6 +387,8 @@ void MoMA::fit(){
                     }
                     // proxiaml step
                     u = prox_u->prox(u,prox_u_step);
+                    // momemtum step
+                    u = u + (oldt-1)/t * (u-oldu2);
                     // nomalize w.r.t S_u
                     double mn = mat_norm(u, S_u);
                     mn > 0 ? u /= mn : u.zeros();    // 
@@ -390,14 +396,17 @@ void MoMA::fit(){
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
                 //    if(iter_u %100 == 0)
                         MoMALogger::debug("--- u ") << iter_u << "--\n" 
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
                 }
 
+                // restore
                 t = 1;
-                while (in_v_tol > EPS)
+                while (in_v_tol > EPS && iter_v < MAX_ITER)
                 {
                     iter_v++;
                     oldv2 = v;
+                    double oldt = t;
+                    t = 0.5 * (1 + sqrt(1 + 4 * oldt*oldt));
                     // gradient step
                     if(alpha_v == 0.0){
                         v = v + grad_v_step * (X.t()*u - v);   
@@ -407,18 +416,19 @@ void MoMA::fit(){
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
                     double mn = mat_norm(v, S_v);
-                  
+                    // momemtum step
+                    v = v + (oldt-1)/t * (v-oldv2);
                     mn > 0 ? v /= mn : v.zeros();
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
                     // if(iter_v %100 == 0)
                         MoMALogger::debug("--- v ") << iter_v << "---\n"
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
                 }
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
                 iter++;
                 MoMALogger::debug("--Finish iter:") << iter << "---\n";
-                MoMALogger::error("FISTA is not provided yet!\n");
+               //MoMALogger::error("FISTA is not provided yet!\n");
             }
         }
         else{
