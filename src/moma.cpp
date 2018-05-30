@@ -10,6 +10,7 @@ enum class Solver{
 };
 
 
+
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::export]]
 double mat_norm(const arma::vec &u, const arma::mat &S_u)   // TODO: special case when S_u = I, i.e., alpha_u = 0.
@@ -28,7 +29,8 @@ private:
     /* matrix size */
     int n;
     int p;
-
+    double alpha_u;
+    double alpha_v;
     double prox_u_step; 
     double prox_v_step;
     double grad_u_step;
@@ -61,7 +63,7 @@ public:
     }
     void check_valid();
     Solver string_to_SolverT(const std::string &s); // String to solver type {ISTA,FISTA}
-    Prox* string_to_Proxptr(const std::string &s,double gamma);
+    Prox* string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group);
    
     // turn user input into what we need to run the algorithm
     MoMA(const arma::mat &X_,   // note it is a reference
@@ -71,14 +73,16 @@ public:
         double gamma,
         /* smoothness */
         arma::mat Omega_u,arma::mat Omega_v,
-        double alpha_u,double alpha_v,
+        double i_alpha_u,double i_alpha_v,
+        /* grouping */
+        const arma::vec &group_u,const arma::vec &group_v,
         /* training para. */
         double i_EPS,long i_MAX_ITER,std::string i_solver):X(X_) // X has to be written in the initialization list
     {
         check_valid();
         MoMALogger::info("Setting up Our model\n");
 
-       
+   
         n = X.n_rows;
         p = X.n_cols;
 
@@ -92,10 +96,16 @@ public:
         arma::vec s;
         arma::mat V;
         arma::svd(U, s, V, X);
-        S_u.eye(arma::size(Omega_u));
-        S_v.eye(arma::size(Omega_v));
-        S_u += n * alpha_u * Omega_u;
-        S_v += p * alpha_v * Omega_v;
+        S_u.eye(n,n);
+        S_v.eye(p,p);
+        alpha_u = i_alpha_u;
+        alpha_v = i_alpha_v;
+        if(i_alpha_u != 0.0)
+       {     MoMALogger::debug("Here construct Su");
+            S_u += n * i_alpha_u * Omega_u;}
+        if(i_alpha_v != 0.0){
+            MoMALogger::debug("Here construct Sv");
+            S_v += p * i_alpha_v * Omega_v;}
 
         // Step 1.2: find Lu,Lv
         double Lu = arma::eig_sym(S_u).max() + 0.01; // +0.01 for convergence
@@ -112,8 +122,8 @@ public:
         u = U.col(0);
 
         // Step 3: match proximal operator
-        prox_u = string_to_Proxptr(P_u,gamma);
-        prox_v = string_to_Proxptr(P_v,gamma);
+        prox_u = string_to_Proxptr(P_u,gamma,group_u);
+        prox_v = string_to_Proxptr(P_v,gamma,group_v);
 
         // Step 4: match gradient operator
 
@@ -121,8 +131,12 @@ public:
 
     void fit();
     Rcpp::List wrap(){ 
-        u = u / norm(u);
-        v = v / norm(v);
+        if(norm(u)!=0){
+            u = u / norm(u);
+        }
+        if(norm(v)!=0){
+            v = v / norm(v);
+        }
         double d = as_scalar(u.t() * X * v);
             return Rcpp::List::create(
             Rcpp::Named("u") = u,
@@ -136,6 +150,8 @@ public:
 
 void MoMA::check_valid(){
     MoMALogger::info("Checking input validity\n");
+
+    // grouping vector should be a factor!
 }
 
 Solver MoMA::string_to_SolverT(const std::string &s){
@@ -151,8 +167,8 @@ Solver MoMA::string_to_SolverT(const std::string &s){
     return res;
 }
 
-Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
-    Prox* res = nullptr;
+Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group){   // free it!
+    Prox* res = new Prox();
     if (s.compare("LASSO") == 0)
        res = new Lasso();
     else if (s.compare("NONNEGLASSO") == 0)
@@ -161,38 +177,56 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma){   // free it!
         res = new Scad(gamma);
     else if (s.compare("MCP") == 0)
         res = new Mcp(gamma);
+    else if(s.compare("NNLASSO") == 0){
+        res = new NNLasso();
+    }
+    else if(s.compare("GRPLASSO") == 0){
+        res = new GrpLasso(group);
+    }
     else
-        MoMALogger::error("Your sparse penalty is not provided!\n");
+        MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `Prox` by default\n");
     return res;
 }
 
 
-// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(Matrix,RcppArmadillo)]]
 // [[Rcpp::export]]
 Rcpp::List sfpca(
     const arma::mat &X ,
 
-    arma::mat Omega_u,arma::mat Omega_v,  /* any idea to set up default values for these matrices? */
+    arma::mat Omega_u,
+    arma::mat Omega_v,  /* any idea to set up default values for these matrices? */ 
+                                               
     double alpha_u = 0,double alpha_v = 0,
 
-    std::string P_u = "LASSO",std::string P_v = "LASSO",
+    std::string P_u = "none",std::string P_v = "none",
     double lambda_u = 0,double lambda_v = 0,
     double gamma = 3.7,
 
+    arma::vec group_u=Rcpp::IntegerVector::create(0), arma::vec group_v=Rcpp::IntegerVector::create(0),
     double EPS = 1e-6,  
     long MAX_ITER = 1e+3,
     std::string solver = "ISTA"
 )
+                                                  
 {
+   // MoMALogger::debug("Omega_u is:") << Omega_u;
     MoMA model(X,  
         /* sparsity*/
          P_v,P_u, 
         lambda_v,lambda_u,
         gamma,
         /* smoothness */
-        Omega_u,Omega_v,
+          /* About setting default value: Handle it on the R side
+                                                     This way is safe. When alpha != 0, we will ask user to specifiy the matrices.
+                                                     When alpha=0, we will not encounter dimenstion discompatibility, 
+                                                     because we special case it in the `MoMA.fit()` function, thus avoiding multiplying them with vectors.
+                                                     */
+        Omega_u,Omega_v, 
         alpha_u,alpha_v,
-        /* optimizer parameter */
+        /* grouping */
+        group_u,group_v,
+        /* optimization parameters */
         EPS,
         MAX_ITER,
         solver);
@@ -245,36 +279,49 @@ void MoMA::fit(){
                 in_v_tol = 1;
                 iter_u = 0;
                 iter_v = 0;
-                while (in_u_tol > EPS)
+                while (in_u_tol > EPS && iter_u < MAX_ITER)
                 {
                     iter_u++;
                     oldu2 = u;  
                     // gradient step
-                    u = u + grad_u_step * (X*v - S_u*u);  // TODO: special case when alpha_u = 0 => S_u = I
+                    if(alpha_u == 0.0){
+                       
+                        u = u + grad_u_step * (X*v - u);  
+
+                    }else{
+                        u = u + grad_u_step * (X*v - S_u*u);  
+                    }
                     // proxiaml step
                     u = prox_u->prox(u,prox_u_step);
                     // nomalize w.r.t S_u
-                    norm(u) > 0 ? u /= mat_norm(u, S_u) : u.zeros();    // Sometimes mat_norm(u,S_u) is so close to zero that u becomes NaN
+                    double mn = mat_norm(u, S_u);
+                    mn > 0 ? u /= mn : u.zeros();    // 
 
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
                 //    if(iter_u %100 == 0)
-                        MoMALogger::debug("---update u ") << iter_u << "--\n" 
-                            << "in_u_tol:" << in_u_tol << "\t iter" << iter_u;
+                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
+                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
                 }
 
-                while (in_v_tol > EPS)
+                while (in_v_tol > EPS && iter_v < MAX_ITER)
                 {
                     iter_v++;
                     oldv2 = v;
                     // gradient step
-                    v = v + grad_v_step * (X.t()*u - S_v*v);    // TODO: special case
+                    if(alpha_v == 0.0){
+                        v = v + grad_v_step * (X.t()*u - v);   
+                    }else{
+                       v = v + grad_v_step * (X.t()*u - S_v*v);  
+                    }
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
-                    norm(v) > 0 ? v /= mat_norm(v, S_v) : v.zeros();
+                    double mn = mat_norm(v, S_v);
+                  
+                    mn > 0 ? v /= mn : v.zeros();
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
                     // if(iter_v %100 == 0)
-                        MoMALogger::debug("---update v ") << iter_v << "---\n"
-                            << "in_v_tol:" << in_v_tol << "\t iter" << iter_v;
+                        MoMALogger::debug("--- v ") << iter_v << "---\n"
+                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter_v << "\tmat_norm:" << mn;
                 }
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
@@ -283,11 +330,84 @@ void MoMA::fit(){
             }
         }
         else if (solver_type == Solver::FISTA){
-            MoMALogger::error("FISTA is not provided yet!\n");
+            MoMALogger::info("Running FISTA!\n");
+            MoMALogger::debug("==Before the loop: training setup==\n") 
+                    << "\titer" << iter
+                    << "\tEPS:" << EPS 
+                    << "\tMAX_ITER:" << MAX_ITER << "\n";
+            while (out_tol > EPS && iter < MAX_ITER)
+            {
+                
+                oldu1 = u;  
+                oldv1 = v;
+                in_u_tol = 1;
+                in_v_tol = 1;
+                iter_u = 0;
+                iter_v = 0;
+
+                double t = 1;
+                while (in_u_tol > EPS && iter_u < MAX_ITER)
+                {
+                    iter_u++;
+                    oldu2 = u;  
+                    double oldt = t;
+                    t = 0.5 * (1 + sqrt(1 + 4 * oldt*oldt));
+                    // gradient step
+                    if(alpha_u == 0.0){
+                        u = u + grad_u_step * (X*v - u);  
+
+                    }else{
+                        u = u + grad_u_step * (X*v - S_u*u);  
+                    }
+                    // proxiaml step
+                    u = prox_u->prox(u,prox_u_step);
+                    // momemtum step
+                    u = u + (oldt-1)/t * (u-oldu2);
+                    // nomalize w.r.t S_u
+                    double mn = mat_norm(u, S_u);
+                    mn > 0 ? u /= mn : u.zeros();    // 
+
+                    in_u_tol = norm(u - oldu2) / norm(oldu2);
+                //    if(iter_u %100 == 0)
+                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
+                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
+                }
+
+                // restore
+                t = 1;
+                while (in_v_tol > EPS && iter_v < MAX_ITER)
+                {
+                    iter_v++;
+                    oldv2 = v;
+                    double oldt = t;
+                    t = 0.5 * (1 + sqrt(1 + 4 * oldt*oldt));
+                    // gradient step
+                    if(alpha_v == 0.0){
+                        v = v + grad_v_step * (X.t()*u - v);   
+                    }else{
+                       v = v + grad_v_step * (X.t()*u - S_v*v);  
+                    }
+                    // proximal step
+                    v = prox_v->prox(v,prox_v_step);
+                    double mn = mat_norm(v, S_v);
+                    // momemtum step
+                    v = v + (oldt-1)/t * (v-oldv2);
+                    mn > 0 ? v /= mn : v.zeros();
+                    in_v_tol = norm(v - oldv2) / norm(oldv2);
+                    // if(iter_v %100 == 0)
+                        MoMALogger::debug("--- v ") << iter_v << "---\n"
+                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
+                }
+
+                out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
+                iter++;
+                MoMALogger::debug("--Finish iter:") << iter << "---\n";
+               //MoMALogger::error("FISTA is not provided yet!\n");
+            }
         }
         else{
             MoMALogger::error("Your choice of solver is not provided yet!");
         }
         MoMALogger::debug("==After the outer loop!==\n") 
                    << "out_tol:" << out_tol << "\t iter" << iter;
-    }
+}
