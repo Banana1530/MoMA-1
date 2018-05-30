@@ -43,5 +43,8 @@ figs/*
 .vscode/c_cpp_properties.json
 .vscode/settings.json
 
-# visualization files
-tests/testthat/*.pdf
+# visualization and benchmark files
+*.pdf
+tests/testthat/Rplots.pdf
+tests/testthat/benchmark*.R
+tests/testthat/visualization*.R
