@@ -1,5 +1,4 @@
-library(MoMA)
-devtools::load_all("MoMA")
+
 # benchmark vectorized version of proximal operators
 scad <- function(p){
     x <- 4*runif(p)
