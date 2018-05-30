@@ -8,8 +8,10 @@
 /////////////////
 // Section 1: Prox operators
 /////////////////
-inline arma::vec soft_thres(const arma::vec &x, double l){
-    return sign(x) % arma::max(abs(x) - l, arma::zeros<arma::vec>(x.n_elem));
+
+// soft-thresholding a non-negative vector
+inline arma::vec soft_thres_p(const arma::vec &x, double l){
+    return arma::max(x - l, arma::zeros<arma::vec>(x.n_elem));
 }
 
 class Prox{
@@ -31,7 +33,8 @@ public:
         MoMALogger::debug("A Lasso prox\n");
     }
     arma::vec prox(const arma::vec &x, double l){
-        return soft_thres(x,l);
+        arma::vec absx = arma::abs(x);
+        return arma::sign(x) % soft_thres_p(absx,l);
     }
     ~Lasso(){
         MoMALogger::debug("Releasing Lasso\n");
@@ -44,46 +47,10 @@ public:
         MoMALogger::debug("A Non-negative Lasso prox\n");
     }
     arma::vec prox(const arma::vec &x, double l){
-        return arma::max(x - l, arma::zeros<arma::vec>(x.n_elem));
+        return soft_thres_p(x,l);
     }
     ~NNLasso(){
         MoMALogger::debug("Releasing NNLasso\n");
-    }
-};
-
-class Scad_vec: public Prox{
-private:
-    double gamma; // gamma_SCAD >= 2
-public:
-    Scad_vec(double g=3.7){
-        MoMALogger::debug("A vectorized Scad prox\n");
-        if(g<2) 
-            MoMALogger::error("Gamma for MCP should be larger than 2!\n");
-        gamma=g;
-    }
-     ~Scad_vec(){
-        MoMALogger::debug("Releasing Scad_vec\n");
-    }
-    arma::vec prox(const arma::vec &x, double l){
-        int n = x.n_elem;
-        double gl = gamma*l;
-        arma::vec z(n);
-        arma::vec absx = arma::abs(x);
-        arma::vec sgnx = sign(x);
-        
-        arma::mat D(x.n_elem,3);    // if we use sp_mat, it becomes slower; it also errors if we use sp_umat, gives wrong result if umat
-        // MoMALogger::debug("D is constructed as\n") << mat(D);
-        // arma::vec x0 = arma::max(absx-l,arma::zeros<arma::vec>(n));
-        // MoMALogger::debug("Pass x0\n") << x0;
-        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
-        // MoMALogger::debug("Pass x1\n") << x1;
-        // Rcpp::Rcout << D.col(0);
-        for(int i = 0; i < n; i++){
-            arma::uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
-            D(i,flag) = 1;
-        }
-        z = D.col(0) % arma::max(absx-l,arma::zeros<arma::vec>(n)) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2)%absx;    
-        return sgnx%z;
     }
 };
 
@@ -101,16 +68,19 @@ public:
      ~Scad(){
         MoMALogger::debug("Releasing Scad\n");
     }
+
     arma::vec prox(const arma::vec &x, double l){
         int n = x.n_elem;
         double gl = gamma*l;
         arma::vec z(n);
         arma::vec absx = arma::abs(x);
-        arma::vec sgnx = sign(x);
+        arma::vec sgnx = arma::sign(x);
         for (int i = 0; i < n; i++) // Probably need vectorization
         {
-            // the implementation follows Variable Selection via Nonconcave Penalized Likelihood and its Oracle Properties
-            // Jianqing Fan and Runze Li, formula(2.8)
+            // The implementation follows 
+            // Variable Selection via Nonconcave Penalized Likelihood and its Oracle Properties
+            // Jianqing Fan nd Runze Li
+            // formula(2.8).
             z(i) = absx(i) > gamma * l ? absx(i) : (absx(i) > 2 * l ? //(gamma-1)/(gamma-2) * THRES_P(absx(i),gamma*l/(gamma-1)) 
                                                     ((gamma - 1) * absx(i) - gl)/ (gamma - 2)
                                                     : THRES_P(absx(i),l)
@@ -119,6 +89,32 @@ public:
         return z%sgnx;    
     }
 
+    arma::vec vec_prox(const arma::vec &x, double l){
+        int n = x.n_elem;
+        double gl = gamma*l;
+        arma::vec z(n);
+        arma::vec absx = arma::abs(x);
+        arma::vec sgnx = arma::sign(x);
+        
+        arma::mat D(x.n_elem,3);    
+        // If we use sp_mat, it becomes slower; 
+        // it also errors if we use sp_umat; 
+        // it gives wrong result if umat is used.
+
+        // MoMALogger::debug("D is constructed as\n") << mat(D);
+        // arma::vec x0 = arma::max(absx-l,arma::zeros<arma::vec>(n));
+        // MoMALogger::debug("Pass x0\n") << x0;
+        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
+        // MoMALogger::debug("Pass x1\n") << x1;
+        // Rcpp::Rcout << D.col(0);
+
+        for(int i = 0; i < n; i++){
+            arma::uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
+            D(i,flag) = 1;
+        }
+        z = D.col(0) % soft_thres_p(absx,l) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2) % absx;    
+        return sgnx%z;
+    }
     
 };
 
@@ -128,34 +124,51 @@ private:
 public:
     Mcp(double g=4){
         MoMALogger::debug("A MC+ prox\n");
-
         if(g<1) 
             MoMALogger::error("Gamma for MCP should be larger than 1!\n");
         gamma=g;
+    }
+    ~Mcp(){
+        MoMALogger::debug("Releasing Mcp\n");
     }
     arma::vec prox(const arma::vec &x, double l){
         int n = x.n_elem;
         arma::vec z(n);
         arma::vec absx = arma::abs(x);
         arma::vec sgnx = arma::sign(x);
-
-        //// Try vectorization
-        // arma::vec thr = sgnx % arma::max(absx - l, zeros(size(x)));
-        // arma::vec flag = ones<vec>(n) * gamma*l;
-        // arma::vec large = x>flag;
-        // arma::vec small = ones(gamma*l)-large;
-        for (int i = 0; i < n; i++) // Probably need vectorization
+        for (int i = 0; i < n; i++) 
         {
             // implementation follows lecture notes of Patrick Breheny
             // http://myweb.uiowa.edu/pbreheny/7600/s16/notes/2-29.pdf
             // slide 19
-            z(i) = absx(i) > gamma * l ? absx(i)
-                                    : (gamma / (gamma - 1)) * THRES_P(absx(i),l);         
+            z(i) = absx(i) > gamma * l ? absx(i) : (gamma / (gamma - 1)) * THRES_P(absx(i),l);         
         }
         return z%sgnx;    
     }
-    ~Mcp(){
-        MoMALogger::debug("Releasing Mcp\n");
+    arma::vec vec_prox(const arma::vec &x, double l){
+        int n = x.n_elem;
+        double gl = gamma*l;
+        arma::vec z(n);
+        arma::vec absx = arma::abs(x);
+        arma::vec sgnx = arma::sign(x);
+        
+        arma::mat D(x.n_elem,2);    
+
+        // MoMALogger::debug("D is constructed as\n") << mat(D);
+        // arma::vec x0 = arma::max(absx-l,arma::zeros<arma::vec>(n));
+        // MoMALogger::debug("Pass x0\n") << x0;
+        // arma::vec x1 = ((gamma-1)*absx - gl)/(gamma-2);
+        // MoMALogger::debug("Pass x1\n") << x1;
+        // Rcpp::Rcout << D.col(0);
+
+        for(int i = 0; i < n; i++){
+            arma::uword flag = 0;
+            if(absx(i) <= gl)
+                flag = 1;   
+            D(i,flag) = 1;
+        }
+        z = (gamma / (gamma - 1)) * D.col(1) % soft_thres_p(absx,l) + D.col(0) % absx;
+        return sgnx%z;
     }
 };
 
@@ -184,7 +197,7 @@ public:
         arma::vec to_be_thres = D.t() * arma::sqrt(D * arma::square(x));
     //  MoMALogger::debug("lambda is ") << l;
        // MoMALogger::debug("norm for each group is\n") << to_be_thres;
-        return sign(x) % arma::max(to_be_thres - l,arma::zeros<arma::vec>(x.n_elem));
+        return arma::sign(x) % soft_thres_p(to_be_thres,l);
     }
-    
+       
 };
