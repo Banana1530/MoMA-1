@@ -20,28 +20,11 @@ test_that("Logging controls work", {
     moma_logger_level("MESSAGE")
 })
 
-# benchmark vectorized version of proximal operators
-# novec <- function(p){
-#     x <- 4*runif(p)
-#     prox_scad(x,1,3)
-# }
-# vec <- function(p){
-#     x <- 4*runif(p)
-#     prox_scadvec(x,1,3)
-# }
-# library(rbenchmark)
-# rep <- 100
-# pset = exp(seq(5,10,0.1))  # a set of `p`s
-# np = length(pset)
-# store <- matrix(nrow = 2, ncol = np)
-# for(i in 1:np){
-#     print(i)
-#     res <- benchmark(vec(pset[i]),novec(pset[i]), replications=rep,order="test")
-#     store[,i] = res$elapsed
-# }
-# plot((store[1,]),type='l')
-# lines((store[2,]),col="red")
 
-## I find that vectorization using sparse matrix is slow, it also causes error is sp_umat is used.
-## For small matrix(<10000), vecotrization with mat<double> is comparable
-## but simple `if-else` is faster for large matrix.
+test_that("Group Lasso test",{
+    x <- c(3,4,5,12,3,4,12)
+    gp <- as.factor(c(1,1,2,2,3,3,3))
+    gpl <- prox_grplasso(x,gp,8)
+    expect_equal(norm(gpl - c(0,0,5,5,5,5,5)),0)
+
+})
