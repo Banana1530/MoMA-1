@@ -96,10 +96,10 @@ public:
         arma::vec absx = arma::abs(x);
         arma::vec sgnx = arma::sign(x);
         
-        arma::mat D(x.n_elem,3);    
+        arma::umat D(x.n_elem,3,arma::fill::zeros);    
         // If we use sp_mat, it becomes slower; 
         // it also errors if we use sp_umat; 
-        // it gives wrong result if umat is used.
+        // it gives wrong result if umat is used. // need to initialize!!!!
 
         // MoMALogger::debug("D is constructed as\n") << mat(D);
         // arma::vec x0 = arma::max(absx-l,arma::zeros<arma::vec>(n));
@@ -112,6 +112,7 @@ public:
             arma::uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
             D(i,flag) = 1;
         }
+
         z = D.col(0) % soft_thres_p(absx,l) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2) % absx;    
         return sgnx%z;
     }
@@ -152,7 +153,7 @@ public:
         arma::vec absx = arma::abs(x);
         arma::vec sgnx = arma::sign(x);
         
-        arma::mat D(x.n_elem,2);    
+        arma::umat D(x.n_elem,2,arma::fill::zeros);    
 
         // MoMALogger::debug("D is constructed as\n") << mat(D);
         // arma::vec x0 = arma::max(absx-l,arma::zeros<arma::vec>(n));
@@ -174,30 +175,29 @@ public:
 
 class GrpLasso: public Prox{
 private:
-    arma::sp_mat D;  // Probably not using sparse matrix would be faster, TODO
-                    // a boolean matrix, D \in R^{g \times p}, g is the number of groups, 
+    arma::umat D;  // Probably not using sparse matrix would be faster, TODO
+                    // a boolean matrix, D \in R^{g \times p}, g is the number of groups, p the number of parameters.
                     // D_ji = 1 means \beta_i in group j.
                     // should be integer, probably use arma::sp_umat; it will cause error though, when it multipies a vec
 public:
-    GrpLasso(const arma::vec &x){   // takes in a factor
+    GrpLasso(const arma::vec &grp){   // takes in a factor
         MoMALogger::debug("A Group Lasso prox\n");
-        D = arma::sp_mat(int(x.max()),x.n_elem);  // density will be 1/p = 1/x.n_elem
-        for(int i = 0; i < x.n_elem; i++){
-            arma::uword g = x(i) - 1; // the i-th parameter is in g-th group. Note factor in R starts from 1
+        arma::uword num_grp = grp.max();
+        D = arma::zeros<arma::umat>(num_grp,grp.n_elem);  // density will be 1/p = 1/x.n_elem
+        for(int i = 0; i < grp.n_elem; i++){
+            arma::uword g = grp(i) - 1; // the i-th parameter is in g-th group. Note factor in R starts from 1
             D(g,i) = 1;
         }
-        MoMALogger::debug("A GrpLasoo!\n");
     }
     ~GrpLasso(){
         MoMALogger::debug("Releasing GrpLasso\n");
     }
     arma::vec prox(const arma::vec &x, double l){
-
        // MoMALogger::debug("D is initialized as ") << D;
-        arma::vec to_be_thres = D.t() * arma::sqrt(D * arma::square(x));
+        arma::vec grp_norms = D.t() * arma::sqrt(D * arma::square(x));    // to_be_thres is of dimension p.
     //  MoMALogger::debug("lambda is ") << l;
        // MoMALogger::debug("norm for each group is\n") << to_be_thres;
-        return arma::sign(x) % soft_thres_p(to_be_thres,l);
+        return (x / grp_norms) % soft_thres_p(grp_norms,l);
     }
        
 };
