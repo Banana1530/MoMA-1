@@ -5,6 +5,7 @@
 #include <algorithm>
 
 enum class Solver{
+    APP_ISTA,
     ISTA,
     FISTA
 };
@@ -80,7 +81,7 @@ public:
         double i_EPS,long i_MAX_ITER,std::string i_solver):X(X_) // X has to be written in the initialization list
     {
         check_valid();
-        MoMALogger::info("Setting up Our model\n");
+        MoMALogger::info("Setting up the model\n");
 
    
         n = X.n_rows;
@@ -161,8 +162,10 @@ Solver MoMA::string_to_SolverT(const std::string &s){
         res = Solver::ISTA;
     else if (s.compare("FISTA") == 0)
         res = Solver::FISTA;
+    else if (s.compare("APP_FISTA"))
+        res = Solver::APP_ISTA;
     else{
-        MoMALogger::error("Your choice of algorithm not provided") << s;
+        MoMALogger::error("Your choice of algorithm is not provided!") << s;
     }
     return res;
 }
@@ -231,7 +234,6 @@ Rcpp::List sfpca(
         MAX_ITER,
         solver);
     model.fit();
-
     return model.wrap();
 }
 
@@ -263,9 +265,9 @@ void MoMA::fit(){
         double in_v_tol = 1;   // tolerance for inner loop of v updates
         double out_tol = 1;    // that of outer loop
 
-        if (solver_type == Solver::ISTA)
+        if (solver_type == Solver::APP_ISTA)
         {
-            MoMALogger::info("Running ISTA!\n");
+            MoMALogger::info("Running APP_ISTA!\n");
             MoMALogger::debug("==Before the loop: training setup==\n") 
                     << "\titer" << iter
                     << "\tEPS:" << EPS 
@@ -285,9 +287,7 @@ void MoMA::fit(){
                     oldu2 = u;  
                     // gradient step
                     if(alpha_u == 0.0){
-                       
                         u = u + grad_u_step * (X*v - u);  
-
                     }else{
                         u = u + grad_u_step * (X*v - S_u*u);  
                     }
@@ -295,12 +295,10 @@ void MoMA::fit(){
                     u = prox_u->prox(u,prox_u_step);
                     // nomalize w.r.t S_u
                     double mn = mat_norm(u, S_u);
-                    mn > 0 ? u /= mn : u.zeros();    // 
-
+                    mn > 0 ? u /= mn : u.zeros();    
+                    // find torlerance
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
-                //    if(iter_u %100 == 0)
-                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter_u << "\tmat_norm:" << mn;
+                    MoMALogger::debug("u ") << iter_u << "--" << "% of change " << in_u_tol;
                 }
 
                 while (in_v_tol > EPS && iter_v < MAX_ITER)
@@ -315,18 +313,17 @@ void MoMA::fit(){
                     }
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
+                    // nomalize w.r.t S_v
                     double mn = mat_norm(v, S_v);
-                  
                     mn > 0 ? v /= mn : v.zeros();
+                    // find torlerance
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
-                    // if(iter_v %100 == 0)
-                        MoMALogger::debug("--- v ") << iter_v << "---\n"
-                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter_v << "\tmat_norm:" << mn;
+                    MoMALogger::debug("v ") << iter_v << "---" << "% of change " << in_v_tol;
                 }
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
                 iter++;
-                MoMALogger::debug("--Finish iter:") << iter << "---\n";
+                MoMALogger::message("--Finish iter:") << iter << "---\n";
             }
         }
         else if (solver_type == Solver::FISTA){
@@ -363,16 +360,14 @@ void MoMA::fit(){
                     u = prox_u->prox(u,prox_u_step);
                     // momemtum step
                     u = u + (oldt-1)/t * (u-oldu2);
-                    // nomalize w.r.t S_u
-                    double mn = mat_norm(u, S_u);
-                    mn > 0 ? u /= mn : u.zeros();    // 
 
                     in_u_tol = norm(u - oldu2) / norm(oldu2);
-                //    if(iter_u %100 == 0)
-                        MoMALogger::debug("--- u ") << iter_u << "--\n" 
-                            << "in_u_tol:" << in_u_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
+                    MoMALogger::debug("u ") << iter_u << "--" << "% of change " << in_u_tol;
                 }
-
+                // nomalize w.r.t S_u
+                double mn = mat_norm(u, S_u);
+                mn > 0 ? u /= mn : u.zeros();    // 
+                MoMALogger::debug("mat_norm is")  << mn;
                 // restore
                 t = 1;
                 while (in_v_tol > EPS && iter_v < MAX_ITER)
@@ -389,22 +384,87 @@ void MoMA::fit(){
                     }
                     // proximal step
                     v = prox_v->prox(v,prox_v_step);
-                    double mn = mat_norm(v, S_v);
                     // momemtum step
                     v = v + (oldt-1)/t * (v-oldv2);
-                    mn > 0 ? v /= mn : v.zeros();
+                    // find tolerance
                     in_v_tol = norm(v - oldv2) / norm(oldv2);
-                    // if(iter_v %100 == 0)
-                        MoMALogger::debug("--- v ") << iter_v << "---\n"
-                            << "in_v_tol:" << in_v_tol << "\t iter:" << iter << "\tmat_norm:" << mn;
+                    MoMALogger::debug("v ") << iter_v << "---"<< "% of change " << in_v_tol;
                 }
+                // normalize w.r.t. S_v
+                mn = mat_norm(v, S_v);
+                mn > 0 ? v /= mn : v.zeros();
+                MoMALogger::debug("mat_norm is") << "\tmat_norm:" << mn;
+
 
                 out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
                 iter++;
-                MoMALogger::debug("--Finish iter:") << iter << "---\n";
+                MoMALogger::message("--Finish iter:") << iter << "---\n";
                //MoMALogger::error("FISTA is not provided yet!\n");
             }
         }
+        else if (solver_type == Solver::ISTA) {
+            MoMALogger::info("Running ISTA!\n");
+            MoMALogger::debug("==Before the loop: training setup==\n") 
+                    << "\titer" << iter
+                    << "\tEPS:" << EPS 
+                    << "\tMAX_ITER:" << MAX_ITER << "\n";
+            while (out_tol > EPS && iter < MAX_ITER)
+            {
+                oldu1 = u;  
+                oldv1 = v;
+                in_u_tol = 1;
+                in_v_tol = 1;
+                iter_u = 0;
+                iter_v = 0;
+                while (in_u_tol > EPS && iter_u < MAX_ITER)
+                {
+                    iter_u++; 
+                    oldu2 = u;  
+                    // gradient step
+                    if(alpha_u == 0.0){
+                        u = u + grad_u_step * (X*v - u);  
+                    }else{
+                        u = u + grad_u_step * (X*v - S_u*u);  
+                    }
+                    // proxiaml step
+                    u = prox_u->prox(u,prox_u_step);
+
+                    // find tolerance
+                    in_u_tol = norm(u - oldu2) / norm(oldu2);
+                    MoMALogger::debug("u ") << iter_u << "--"<< "% of change " << in_u_tol;
+                }
+                // nomalize w.r.t S_u
+                double mn = mat_norm(u, S_u);
+                mn > 0 ? u /= mn : u.zeros();    
+                MoMALogger::debug("mat_norm is") << mn;
+
+                while (in_v_tol > EPS && iter_v < MAX_ITER)
+                {
+                    iter_v++;
+                    oldv2 = v;
+                    // gradient step
+                    if(alpha_v == 0.0){
+                        v = v + grad_v_step * (X.t()*u - v);   
+                    }else{
+                       v = v + grad_v_step * (X.t()*u - S_v*v);  
+                    }
+                    // proximal step
+                    v = prox_v->prox(v,prox_v_step);
+                    // find tolerance
+                    in_v_tol = norm(v - oldv2) / norm(oldv2);   
+                    MoMALogger::debug("v ") << iter_v << "---" << "% of change " << in_v_tol;
+                }
+                // nomalize w.r.t S_v
+                mn = mat_norm(v, S_v);
+                mn > 0 ? v /= mn : v.zeros();
+                MoMALogger::debug("mat_norm is") << mn;
+
+                out_tol = norm(oldu1 - u) / norm(oldu1) + norm(oldv1 - v) / norm(oldv1);
+                iter++;
+                MoMALogger::message("--Finish iter:") << iter << "---\n";
+            }
+        }
+     
         else{
             MoMALogger::error("Your choice of solver is not provided yet!");
         }

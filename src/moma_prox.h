@@ -112,6 +112,9 @@ public:
             arma::uword flag = absx(i) > gl ? 2 : (absx(i) > 2 * l ? 1: 0);   
             D(i,flag) = 1;
         }
+        // D.col(2) = absx > gl;
+        // D.col(0) = absx <= 2*l;
+        // D.col(1) = arma::ones<arma::uvec>(n) - D.col(2) - D.col(0);
 
         z = D.col(0) % soft_thres_p(absx,l) + D.col(1) % ((gamma-1)*absx - gl)/(gamma-2) + D.col(2) % absx;    
         return sgnx%z;
