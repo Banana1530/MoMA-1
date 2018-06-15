@@ -152,13 +152,14 @@ void FusionGroups::merge(){
         MoMALogger::debug("now merging ") << dst << "and " << pre_group << "\n";
         double lambda_pre = meet(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
         heap_change_lambda(this->pq,pre_group,lambda_pre);
-        MoMALogger::info("Update lambda");
+        MoMALogger::info("Update lambda pre group");
         heap_print(this->pq);
     }
     if(next_group != NO_NEXT){
-        double lambda_next = ((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
+        double lambda_next = meet(g[next_group].lambda,g[dst].lambda,g[next_group].slope,g[dst].slope,g[next_group].beta,g[dst].beta);
+        //((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
         heap_change_lambda(this->pq,dst,lambda_next);
-        MoMALogger::info("Update lambda");
+        MoMALogger::info("Update lambda current group");
         heap_print(this->pq);
         heap_delete(this->pq,src);
     }else{
