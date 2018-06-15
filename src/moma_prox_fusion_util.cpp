@@ -101,7 +101,7 @@ arma::vec FusionGroups::print_vec(double target_lam){
 
 double FusionGroups::meet(double x1,double x2,double k1,double k2,double y1,double y2){
     if(k1 == k2)
-        MoMALogger::error("Paralell!")<<k1 << "and" << k2;
+        return INFTY;
     return ((y1 - y2) - (k1 * x1 - k2 * x2)) / (-k1 + k2);
 }
 
