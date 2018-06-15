@@ -37,7 +37,6 @@ FusionGroups::FusionGroups(const arma::vec &x){
             h =  (g[i].beta - g[i+1].beta) / (g[i+1].slope - g[i].slope);
         else 
             h = INFTY;
-        MoMALogger::info("see h")<<double(h) << "=" <<  (g[i].beta - g[i+1].beta) << "//" <<  (g[i+1].slope - g[i].slope);
         pq[i] = HeapNode(i,h);
     }
     std::make_heap(pq.begin(),pq.end(),gt);
@@ -86,20 +85,20 @@ double FusionGroups::line_value_at(double x,double y,double k,double x_){
     return y + k * (x_ - x);
 }
 
-arma::vec FusionGroups::print_vec(double target_lam){
+arma::vec FusionGroups::find_beta_at(double target_lam){
     int n = (this->g).size();
     arma::vec x = arma::zeros<arma::vec>(n);
     for(int i = 0; i != NO_NEXT;){
+        double betaj = line_value_at(g[i].lambda,g[i].beta,g[i].slope,target_lam);
         for(int j = g[i].head; j <= g[i].tail; j++){
-            x(j) = line_value_at(g[i].lambda,g[i].beta,g[i].slope,target_lam);
-            MoMALogger::debug("") << "target_lam" << target_lam << "current_lam" << g[i].lambda << "\n";
+            x(j) = betaj;
         }
         i = next_group(i);
     }
     return x;
 }
 
-double FusionGroups::meet(double x1,double x2,double k1,double k2,double y1,double y2){
+double FusionGroups::lines_meet_at(double x1,double x2,double k1,double k2,double y1,double y2){
     if(k1 == k2)
         return INFTY;
     return ((y1 - y2) - (k1 * x1 - k2 * x2)) / (-k1 + k2);
@@ -107,7 +106,6 @@ double FusionGroups::meet(double x1,double x2,double k1,double k2,double y1,doub
 
 void FusionGroups::merge(){
     HeapNode node = heap_peek_min(this->pq);
-    MoMALogger::info("Merging");
     node.print();
     int dst = node.id;
     double new_lambda = node.lambda;
@@ -119,7 +117,6 @@ void FusionGroups::merge(){
     if(dst >= src)
         MoMALogger::error("dst_grp should be in front of src_grp");
 
-    
     // update beta
     g[dst].beta = g[dst].beta + g[dst].slope * (new_lambda - g[dst].lambda);
 
@@ -143,23 +140,18 @@ void FusionGroups::merge(){
     g[src].parent = dst;
     g[last_node].parent = dst;
     
-    MoMALogger::info("=======After changing pointing to parents");
     this->print();
 
     // update heap
     if(pre_group != NO_PRE){
-        // double lambda_pre = ((g[pre_group].beta - g[dst].beta) - (g[pre_group].slope*g[pre_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[pre_group].slope + g[dst].slope);
-        MoMALogger::debug("now merging ") << dst << "and " << pre_group << "\n";
-        double lambda_pre = meet(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
+        double lambda_pre = lines_meet_at(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
         heap_change_lambda(this->pq,pre_group,lambda_pre);
-        MoMALogger::info("Update lambda pre group");
         heap_print(this->pq);
     }
     if(next_group != NO_NEXT){
-        double lambda_next = meet(g[next_group].lambda,g[dst].lambda,g[next_group].slope,g[dst].slope,g[next_group].beta,g[dst].beta);
+        double lambda_next = lines_meet_at(g[next_group].lambda,g[dst].lambda,g[next_group].slope,g[dst].slope,g[next_group].beta,g[dst].beta);
         //((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
         heap_change_lambda(this->pq,dst,lambda_next);
-        MoMALogger::info("Update lambda current group");
         heap_print(this->pq);
         heap_delete(this->pq,src);
     }else{

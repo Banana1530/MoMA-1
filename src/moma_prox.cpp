@@ -250,5 +250,5 @@ arma::vec OrderedFusion::operator()(const arma::vec &x, double l){
     while(!fg.all_merged() && fg.next_lambda() < l){
         fg.merge();
     }
-    return fg.print_vec(l);
+    return fg.find_beta_at(l);
 }

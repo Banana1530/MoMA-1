@@ -29,7 +29,6 @@ int min_child(std::vector<HeapNode> &h, int i) {
 * TODO: extra copy can be avoided in siftdown
 */
 void swap(std::vector<HeapNode> &h,int i, int j){
-    MoMALogger::debug("") << h[i].lambda << "and" << h[j].lambda << "swapped\n";
     HeapNode tmp = h[i];
     h[i] = h[j];
     h[j] = tmp;
@@ -104,12 +103,12 @@ bool is_minheap(std::vector<HeapNode> &heap){
     int i = 0;
     while(2 * i + 1 < heap.size()){
         if(gt(heap[i],heap[2 * i + 1])){
-            MoMALogger::debug("") << heap[i].lambda << "and"<< heap[2*i+1].lambda;
+            MoMALogger::error("") << "Not a min-heap" << heap[i].lambda << "and"<< heap[2*i+1].lambda;
             return 0;
         }
         if(2 * i + 2 < heap.size()){
             if(gt(heap[i],heap[2 * i + 2])){
-                MoMALogger::debug("") << heap[i].lambda << "and"<< heap[2*i+2].lambda;
+                MoMALogger::error("") << "Not a min-heap" << heap[i].lambda << "and"<< heap[2*i+2].lambda;
                 return 0;
             }
         }

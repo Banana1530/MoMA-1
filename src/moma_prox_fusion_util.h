@@ -20,7 +20,7 @@ public:
         << "parent: " << parent
         << "lambda:" << lambda
         << "\tbeta:" << beta
-        << "\tslope: " << slope
+        << "slope: " << slope
         << "\n";
     }
 };
@@ -42,10 +42,10 @@ public:
     int group_size(int this_group);
 
     // Print beta
-    arma::vec print_vec(double target_lam);
+    arma::vec find_beta_at(double target_lam);
 
     // Calculation concerning lines
-    double meet(double x1,double x2,double k1,double k2,double y1,double y2);
+    double lines_meet_at(double x1,double x2,double k1,double k2,double y1,double y2);
     double line_value_at(double x,double y,double k,double x_);
 
     // Merge node dst with the group next to it
