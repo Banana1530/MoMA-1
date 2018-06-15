@@ -1,3 +1,5 @@
+#ifndef MOMA_PROX_FUSION_UTIL
+#define MOMA_PROX_FUSION_UTIL 1
 #include "moma.h"
 #include "moma_heap.h"
 
@@ -16,9 +18,9 @@ public:
         Rcpp::Rcout<<"head: " << head 
         << "tail: " << tail 
         << "parent: " << parent
-        << "lambda:\t" << lambda
-        << "beta:\t" << beta
-        << "slope: " << slope
+        << "lambda:" << lambda
+        << "\tbeta:" << beta
+        << "\tslope: " << slope
         << "\n";
     }
 };
@@ -47,8 +49,9 @@ public:
     double line_value_at(double x,double y,double k,double x_);
 
     // Merge node dst with the group next to it
-    void merge(int dst, double new_lambda);
-    
+    void merge();
+    double next_lambda();
+    bool all_merged();
     // Some macro
     const int NO_PRE = -2;
     const int NO_NEXT = -3;
@@ -58,3 +61,4 @@ public:
     std::vector<Group> g;
     std::vector<HeapNode> pq;
 };
+#endif

@@ -238,3 +238,17 @@ arma::vec NonNegativeGrpLasso::operator()(const arma::vec &x, double l){
     arma::vec pos_x = x % (x > 0);
     return (pos_x / grp_norms) % soft_thres_p(grp_norms,l);
 }
+
+OrderedFusion::OrderedFusion(){
+    MoMALogger::debug("Initializing ordered fusion lasso proximal operator object");
+}
+OrderedFusion::~OrderedFusion(){
+    MoMALogger::debug("Releasing ordered fusion lasso proximal operator object");
+}
+arma::vec OrderedFusion::operator()(const arma::vec &x, double l){
+    FusionGroups fg(x);
+    while(!fg.all_merged() && fg.next_lambda() < l){
+        fg.merge();
+    }
+    return fg.print_vec(l);
+}

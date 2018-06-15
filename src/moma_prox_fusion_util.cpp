@@ -41,15 +41,14 @@ FusionGroups::FusionGroups(const arma::vec &x){
         pq[i] = HeapNode(i,h);
     }
     std::make_heap(pq.begin(),pq.end(),gt);
-    heap_print(pq);
     return;
 }
 
 void FusionGroups::print(){
-    Rcpp::Rcout<<"Grouping now is\n";
+    MoMALogger::debug("")<<"Grouping now is\n";
     for(auto i:g)
         i.print();
-    Rcpp::Rcout<<"\n";
+    MoMALogger::debug("")<<"\n";
 }
 
 bool FusionGroups::is_valid(int this_node){
@@ -93,19 +92,25 @@ arma::vec FusionGroups::print_vec(double target_lam){
     for(int i = 0; i != NO_NEXT;){
         for(int j = g[i].head; j <= g[i].tail; j++){
             x(j) = line_value_at(g[i].lambda,g[i].beta,g[i].slope,target_lam);
-            Rcpp::Rcout << "target_lam" << target_lam << "current_lam" << g[i].lambda << "\n";
+            MoMALogger::debug("") << "target_lam" << target_lam << "current_lam" << g[i].lambda << "\n";
         }
         i = next_group(i);
     }
-    Rcpp::Rcout << x;
     return x;
 }
 
 double FusionGroups::meet(double x1,double x2,double k1,double k2,double y1,double y2){
+    if(k1 == k2)
+        MoMALogger::error("Paralell!")<<k1 << "and" << k2;
     return ((y1 - y2) - (k1 * x1 - k2 * x2)) / (-k1 + k2);
 }
 
-void FusionGroups::merge(int dst, double new_lambda){
+void FusionGroups::merge(){
+    HeapNode node = heap_peek_min(this->pq);
+    MoMALogger::info("Merging");
+    node.print();
+    int dst = node.id;
+    double new_lambda = node.lambda;
     int src = this->next_group(dst);
     
     if(!is_valid(dst) || src == NO_NEXT){
@@ -114,6 +119,7 @@ void FusionGroups::merge(int dst, double new_lambda){
     if(dst >= src)
         MoMALogger::error("dst_grp should be in front of src_grp");
 
+    
     // update beta
     g[dst].beta = g[dst].beta + g[dst].slope * (new_lambda - g[dst].lambda);
 
@@ -136,20 +142,23 @@ void FusionGroups::merge(int dst, double new_lambda){
     g[dst].tail = last_node;
     g[src].parent = dst;
     g[last_node].parent = dst;
-    this->print();
     
+    MoMALogger::info("=======After changing pointing to parents");
+    this->print();
+
     // update heap
     if(pre_group != NO_PRE){
         // double lambda_pre = ((g[pre_group].beta - g[dst].beta) - (g[pre_group].slope*g[pre_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[pre_group].slope + g[dst].slope);
+        MoMALogger::debug("now merging ") << dst << "and " << pre_group << "\n";
         double lambda_pre = meet(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
-        MoMALogger::info("Update lambda of pre group\n");
         heap_change_lambda(this->pq,pre_group,lambda_pre);
+        MoMALogger::info("Update lambda");
         heap_print(this->pq);
     }
     if(next_group != NO_NEXT){
         double lambda_next = ((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
-        MoMALogger::info("Update lambda of next group\n");
         heap_change_lambda(this->pq,dst,lambda_next);
+        MoMALogger::info("Update lambda");
         heap_print(this->pq);
         heap_delete(this->pq,src);
     }else{
@@ -157,75 +166,10 @@ void FusionGroups::merge(int dst, double new_lambda){
     }
 }
 
-
-
-// [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::export]]
-void fusino_test(const arma::vec &x){
-    FusionGroups a(x);
-
-    int cnt = 5;
-
-    HeapNode node1;
-    while(cnt >= 0){
-        MoMALogger::info("=================");
-        node1 = heap_peek_min(a.pq);
-        heap_print(a.pq);
-        a.merge(node1.id,node1.lambda);
-        a.print_vec(node1.lambda);
-
-    }
-
-
-    // a.merge(0,2);
-    // a.merge(0,3);
-
-    // Rcpp::Rcout << a.pre_group(0);
-    // Rcpp::Rcout << a.next_group(0);
-
-    // a.merge(4,5);
-    // a.merge(4,6);
-    // a.merge(4,7);
-
-    // Rcpp::Rcout << a.pre_group(4);
-    // Rcpp::Rcout << a.next_group(4);
-    // a.merge(0,4);
-}
-
-// [[Rcpp::export]]
-void queue_test(){
-
-    HeapNode a(1,2.3);
-    HeapNode b(2,5.2);
-    HeapNode c(3,0.1);
-    HeapNode d(4,0);
-    HeapNode e(5,3.2);
-    HeapNode h(6,2);
-    HeapNode g(7,-3);
-    HeapNode i(8,2.3);
-    HeapNode j(9,23);
-    HeapNode k(10,9.23);
-    std::vector<HeapNode> q;
-    q.push_back(a);
-    q.push_back(b);
-    q.push_back(c);
-    q.push_back(d);
-    q.push_back(e);
-    q.push_back(h);
-    q.push_back(g);
-    q.push_back(i);
-    q.push_back(j);
-    q.push_back(k);
-
-    std::make_heap(q.begin(), q.end(),gt);
-    heap_print(q);
-
-    for(int i=1; i<11; i++){
-        heap_delete(q,i);
-        heap_print(q);
-        if(!is_minheap(q)){
-            MoMALogger::error("Not min heap!");
-        }
-    }
-}
-
+double FusionGroups::next_lambda(){
+    HeapNode n = heap_peek_min(this->pq);
+    return n.lambda;
+};
+bool FusionGroups::all_merged(){
+    return is_empty(this->pq);
+};

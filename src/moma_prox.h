@@ -5,7 +5,7 @@
 
 #include "moma_base.h"
 #include "moma_logging.h"
-
+#include "moma_prox_fusion_util.h"
 #define MAX(a,b) (a)>(b)?(a):(b)
 #define THRES_P(x,l) (MAX(x-l,0.0)) // shrink a positive value by `l`
 
@@ -90,6 +90,13 @@ class NonNegativeGrpLasso: public GrpLasso{
 public:
     NonNegativeGrpLasso(const arma::vec &grp);
     ~NonNegativeGrpLasso();
+    arma::vec operator()(const arma::vec &x, double l);       
+};
+
+class OrderedFusion: public Prox{
+public:
+    OrderedFusion();
+    ~OrderedFusion();
     arma::vec operator()(const arma::vec &x, double l);       
 };
 
