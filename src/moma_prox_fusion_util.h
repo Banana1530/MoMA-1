@@ -1,3 +1,5 @@
+#ifndef MOMA_PROX_FUSION_UTIL
+#define MOMA_PROX_FUSION_UTIL 1
 #include "moma.h"
 #include "moma_heap.h"
 
@@ -16,8 +18,8 @@ public:
         Rcpp::Rcout<<"head: " << head 
         << "tail: " << tail 
         << "parent: " << parent
-        << "lambda:\t" << lambda
-        << "beta:\t" << beta
+        << "lambda:" << lambda
+        << "\tbeta:" << beta
         << "slope: " << slope
         << "\n";
     }
@@ -40,15 +42,16 @@ public:
     int group_size(int this_group);
 
     // Print beta
-    arma::vec print_vec(double target_lam);
+    arma::vec find_beta_at(double target_lam);
 
     // Calculation concerning lines
-    double meet(double x1,double x2,double k1,double k2,double y1,double y2);
+    double lines_meet_at(double x1,double x2,double k1,double k2,double y1,double y2);
     double line_value_at(double x,double y,double k,double x_);
 
     // Merge node dst with the group next to it
-    void merge(int dst, double new_lambda);
-    
+    void merge();
+    double next_lambda();
+    bool all_merged();
     // Some macro
     const int NO_PRE = -2;
     const int NO_NEXT = -3;
@@ -58,3 +61,4 @@ public:
     std::vector<Group> g;
     std::vector<HeapNode> pq;
 };
+#endif

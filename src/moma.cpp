@@ -217,7 +217,10 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec 
             res = new GrpLasso(group);
     }
     else if(s.compare("FUSION") == 0){
-           MoMALogger::error("Fusion is not provided yet");
+        if(nonneg)
+            MoMALogger::error("Non-negative fusion lasso is not implemented!");
+        else
+            res = new OrderedFusion();
     }
     else
         MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `NullProx` by default");
@@ -275,7 +278,7 @@ Rcpp::List sfpca(
 
 void MoMA::fit(){
         MoMALogger::info("Model info=========")
-            <<"n:"<<n
+            <<"n:" <<n
             <<"p:" << p;
         MoMALogger::info("Start fitting.");
 
@@ -451,7 +454,8 @@ void MoMA::fit(){
         else{
             MoMALogger::error("Your choice of solver is not provided yet!");
         }
-        MoMALogger::debug("==After the outer loop!==")
-                   << "out_tol:" << out_tol
-                   << "\t iter" << iter;
+        MoMALogger::debug("==After the outer loop!==") 
+                   << "out_tol:" << out_tol << "\t iter" << iter;
+        if(iter == MAX_ITER)
+            MoMALogger::warning("No convergence!");
 }
