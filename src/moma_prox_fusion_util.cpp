@@ -106,7 +106,6 @@ double FusionGroups::lines_meet_at(double x1,double x2,double k1,double k2,doubl
 
 void FusionGroups::merge(){
     HeapNode node = heap_peek_min(this->pq);
-    node.print();
     int dst = node.id;
     double new_lambda = node.lambda;
     int src = this->next_group(dst);
@@ -140,19 +139,16 @@ void FusionGroups::merge(){
     g[src].parent = dst;
     g[last_node].parent = dst;
     
-    this->print();
 
     // update heap
     if(pre_group != NO_PRE){
         double lambda_pre = lines_meet_at(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
         heap_change_lambda(this->pq,pre_group,lambda_pre);
-        heap_print(this->pq);
     }
     if(next_group != NO_NEXT){
         double lambda_next = lines_meet_at(g[next_group].lambda,g[dst].lambda,g[next_group].slope,g[dst].slope,g[next_group].beta,g[dst].beta);
         //((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
         heap_change_lambda(this->pq,dst,lambda_next);
-        heap_print(this->pq);
         heap_delete(this->pq,src);
     }else{
         heap_delete(this->pq,dst);

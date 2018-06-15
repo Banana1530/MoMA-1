@@ -452,6 +452,8 @@ void MoMA::fit(){
         else{
             MoMALogger::error("Your choice of solver is not provided yet!");
         }
-        MoMALogger::debug("==After the outer loop!==\n") 
+        MoMALogger::debug("==After the outer loop!==") 
                    << "out_tol:" << out_tol << "\t iter" << iter;
+        if(iter == MAX_ITER)
+            MoMALogger::warning("No convergence!");
 }
