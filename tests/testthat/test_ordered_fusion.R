@@ -50,8 +50,3 @@ test_that("Same results as the `flsa` package", {
         }
     }
 })
-
-# Note the following example will fail the test
-# My current guess is acculmulative error
-# x <- c(1.792971,5.844985,9.878982,3.153380,5.013267,9.679369,2.649252,6.266857,3.832676)
-# l <- 0.9299435
