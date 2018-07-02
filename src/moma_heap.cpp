@@ -31,7 +31,7 @@ int Heap::min_child(int i) {
 
 // TODO: extra copy can be avoided in siftdown
 void Heap::swap(int i, int j, FusionGroups *fg){
-    MoMALogger::debug("") << "Swapping " << heap[i].lambda << "and " << heap[j].lambda;
+    // MoMALogger::debug("") << "Swapping " << heap[i].lambda << "and " << heap[j].lambda;
     (*fg).g[heap[i].id].map_to_heap = j;
     (*fg).g[heap[j].id].map_to_heap = i;
     HeapNode tmp = heap[i];
@@ -53,7 +53,7 @@ void Heap::siftup(int i, FusionGroups *fg){
 void Heap::siftdown(int current_node, FusionGroups *fg){
     int cur_size = heap.size();
 	int child = min_child(current_node);
-	while (child < cur_size && gt(heap[current_node], heap[child])){
+	while (child < cur_size && gt(heap[current_node],heap[child])){
 		Heap::swap(child, current_node, fg);
         current_node = child;
 		child = min_child(child);
@@ -80,6 +80,14 @@ int Heap::heap_change_lambda_by_id(int i, double new_lambda, FusionGroups *fg){
 //  To delete an element, move it to the tail, pop it out, and then sift down 
 //  the node that replaces it
 void Heap::heap_delete(int i, FusionGroups *fg){
+    // MoMALogger::debug("Delete (") << heap[i].lambda << "," << heap[i].id << ")";
+
+    // if(i == heap.size() - 1){
+    //     (*fg).g[i].map_to_heap = FusionGroups::NOT_IN_HEAP;
+    //     heap.pop_back();
+    //     return;
+    // }
+
     if(i < 0 || i >= heap.size())
         MoMALogger::error("Try to delete: no such id in current heap: ") << i;
     double old_lambda = heap[i].lambda;

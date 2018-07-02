@@ -47,9 +47,12 @@ void FusionGroups::print(){
     for(int i = 0; i < g.size(); i++){
         if(is_valid(i)){
             g[i].print();
+            if(g[i].map_to_heap != NOT_IN_HEAP && g[i].map_to_heap >= heap.heap.size()){
+                MoMALogger::error("Exceeds heap limit") << g[i].map_to_heap << "while heap size is " << heap.heap.size();
+            }
         }
         else{
-            MoMALogger::error("") << "=====";
+            MoMALogger::debug("") << "=====";
             g[i].print();
         }
     }
