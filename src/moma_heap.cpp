@@ -81,7 +81,12 @@ void Heap::heap_delete(int i, FusionGroups *fg){
     Heap::swap(i, heap.size()-1, fg);
     (*fg).g[heap[heap.size()-1].id].map_to_heap = -4;
     heap.pop_back();
-    siftdown(i, fg);
+    if(old_lambda < heap[i].lambda){
+        siftdown(i, fg);
+    }
+    else{
+        siftup(i, fg);
+    }
     return;
 }
 
@@ -123,7 +128,7 @@ void Heap::heap_print(){
     int cnt = 0;
     int thre = 1;
     for (auto i : heap){
-        Rcpp::Rcout << i.lambda << ", " << i.id << "\t";
+        Rcpp::Rcout << i.lambda << ", " << i.id + 1 << "\t";
         cnt ++;
         if(cnt == thre){
             Rcpp::Rcout << "\n";
