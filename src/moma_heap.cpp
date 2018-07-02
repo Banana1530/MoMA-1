@@ -42,7 +42,7 @@ void Heap::swap(int i, int j, FusionGroups *fg){
 // In a min-heap, if the key (lambda in our case) decreases, sift it up
 void Heap::siftup(int i, FusionGroups *fg){
     int parent = (i - 1) / 2;
-    while (i != 0 && !gt(heap[i],heap[parent])) {
+    while (i != 0 && gt(heap[parent],heap[i])) {
         Heap::swap(parent, i, fg);
         i = parent;
         parent = (i - 1) / 2;
@@ -60,7 +60,6 @@ void Heap::siftdown(int current_node, FusionGroups *fg){
 	}
 }
 
-
 //Change the key of any nodes; TODO: not use trasversal
 int Heap::heap_change_lambda_by_id(int i, double new_lambda, FusionGroups *fg){
     if(i < 0 || i >= heap.size())
@@ -68,11 +67,11 @@ int Heap::heap_change_lambda_by_id(int i, double new_lambda, FusionGroups *fg){
     double old_lambda = heap[i].lambda;
     heap[i].lambda = new_lambda;
     if(old_lambda < new_lambda){
-        // MoMALogger::debug("") << old_lambda << "->" << new_lambda << " siftdown";
+        // MoMALogger::debug("(") << old_lambda << "," << heap[i].id << ")" << "->" << new_lambda << " siftdown";
         siftdown(i, fg);
     }
     else{
-        // MoMALogger::debug("") << old_lambda << "->" << new_lambda << " siftup";
+        // MoMALogger::debug("") << old_lambda << "," << heap[i].id << ")" << "->" << new_lambda << " siftup";
         siftup(i, fg);
     }
     return i;
@@ -83,9 +82,9 @@ int Heap::heap_change_lambda_by_id(int i, double new_lambda, FusionGroups *fg){
 void Heap::heap_delete(int i, FusionGroups *fg){
     if(i < 0 || i >= heap.size())
         MoMALogger::error("Try to delete: no such id in current heap: ") << i;
+    double old_lambda = heap[i].lambda;
     Heap::swap(i, heap.size()-1, fg);
-    double old_lambda = heap[heap.size() - 1].lambda;
-    (*fg).g[heap[heap.size()-1].id].map_to_heap = -4;
+    (*fg).g[heap[heap.size()-1].id].map_to_heap = FusionGroups::NOT_IN_HEAP;
     heap.pop_back();
     if(old_lambda < heap[i].lambda){
         siftdown(i, fg);
@@ -134,7 +133,7 @@ void Heap::heap_print(){
     int cnt = 0;
     int thre = 1;
     for (auto i : heap){
-        Rcpp::Rcout << i.lambda << ", " << i.id + 1 << "\t";
+        Rcpp::Rcout << i.lambda << ", " << i.id << "\t";
         cnt ++;
         if(cnt == thre){
             Rcpp::Rcout << "\n";
