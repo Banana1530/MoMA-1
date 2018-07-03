@@ -1,6 +1,6 @@
 #ifndef MOMA_PROX_FUSION_UTIL
 #define MOMA_PROX_FUSION_UTIL 1
-#include "moma.h"
+
 #include "moma_base.h"
 #include "moma_heap.h"
 class FusionGroups;

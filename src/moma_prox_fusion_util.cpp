@@ -157,6 +157,7 @@ void FusionGroups::merge(){
     if(pre_group != NO_PRE){
         double lambda_pre = lines_meet_at(g[pre_group].lambda,g[dst].lambda,g[pre_group].slope,g[dst].slope,g[pre_group].beta,g[dst].beta);
         heap.heap_change_lambda_by_id(g[pre_group].map_to_heap, lambda_pre, this);
+        // // DEBUG INFO
         // if(!heap.is_minheap()){
         //     Rcpp::Rcout << "Error after update pre group\n";
         // }else{
@@ -167,12 +168,14 @@ void FusionGroups::merge(){
         double lambda_next = lines_meet_at(g[next_group].lambda,g[dst].lambda,g[next_group].slope,g[dst].slope,g[next_group].beta,g[dst].beta);
         //((g[next_group].beta - g[dst].beta) - (g[next_group].slope*g[next_group].lambda - g[dst].slope*g[dst].lambda)) / (-g[next_group].slope + g[dst].slope);
         heap.heap_change_lambda_by_id(g[dst].map_to_heap, lambda_next, this);
+        // // DEBUG INFO
         // if(!heap.is_minheap()){
         //     Rcpp::Rcout << "Error after update this group\n";
         // }else{
         //     heap.heap_print();
         // }
         heap.heap_delete(g[src].map_to_heap, this);
+        // // DEBUG INFO
         // if(!heap.is_minheap()){
         //     Rcpp::Rcout << "Error after delete next group\n";
         // }else{
@@ -180,6 +183,7 @@ void FusionGroups::merge(){
         // }
     }else{
         heap.heap_delete(g[dst].map_to_heap, this);
+        // // DEBUG INFO
         // if(!heap.is_minheap()){
         //     Rcpp::Rcout << "Error after delete next group\n";
         // }else{
