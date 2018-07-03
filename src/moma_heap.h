@@ -4,7 +4,7 @@
 #include "moma_logging.h"
 
 // The non-existing child is located at infinity
-#define NO_CHILED 2 << 19
+#define NO_CHILD 2 << 19
 
 class HeapNode{
 public:

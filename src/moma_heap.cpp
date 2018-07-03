@@ -19,7 +19,7 @@ int Heap::min_child(int i) {
 	int child = i * 2 + 1;
 	if (child >= cur_size) {
 		// no children
-		return NO_CHILED;
+		return NO_CHILD;
 	} else if (child+1 >= cur_size || !gt(heap[child],heap[child+1])){
 		// only child or first child is biggest child
 		return child;
