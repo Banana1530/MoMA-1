@@ -108,7 +108,7 @@ arma::vec FusionGroups::find_beta_at(double target_lam){
 }
 
 double FusionGroups::lines_meet_at(double x1,double x2,double k1,double k2,double y1,double y2){
-    if(abs(k1 -k2) < 1e-10)
+    if(k1 == k2)
         // This part should not be replaced by 
         // k1 == k2
         // due to numerical stability
