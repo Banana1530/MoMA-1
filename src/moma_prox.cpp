@@ -315,9 +315,9 @@ arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weigh
     // Yue Hu, Eric C. Chi and Genevera I. Allen
 
     const int MAX_IT = 10000;
+    arma::mat w = arma::trimatu(weight,1);
     // beta subproblem: O(n)
     if(ADMM){
-        arma::mat w = arma::trimatu(weight,1);
         int n = y.n_elem;
         double y_bar = arma::mean(y);
         arma::mat z(n,n);
@@ -332,7 +332,7 @@ arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weigh
             oldz = z;
             cnt++;
             for(int i = 0; i < n; i++){
-                double part1 = arma::sum(z.row(i) + u.row(i));
+                double part1 = arma::sum(z.row(i) + u.row(i));  // TODO: accelerate
                 double part2 = arma::sum(z.col(i) + u.col(i));
                 b(i) = ((y(i) + n * y_bar) + part1 - part2) / (n + 1);
             }
@@ -357,6 +357,45 @@ arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weigh
         }
         // TODO: shrink stepsize
         return b;
+    }
+    else{
+        int n = y.n_elem;
+        arma::vec d(n);
+        arma::mat u(n,n);
+        arma::mat g(n,n);
+
+        d.zeros();
+        u.zeros();
+        g.zeros();
+        
+        arma::mat old_g;
+        int cnt = 0;
+        do{
+            cnt++;
+            old_g = g;
+            for(int i = 0; i < n; i++){
+                double part1 = arma::sum(u.row(i));
+                double part2 = arma::sum(u.col(i));
+                d(i) = part1 - part2;
+            }
+            for(int i = 0; i < n; i++){
+                for(int j = i + 1; j < n; j++){
+                    g(i,j) = y(i) - y(j) + d(i) - d(j);
+                    u(i,j) = u(i,j) - g(i,j);
+                    if(std::abs(u(i,j)) > l * w(i,j)){
+                        u(i,j) = l * w(i,j) * u(i,j) / std::abs(u(i,j));
+                    }
+                }
+            }
+            Rcpp::Rcout << cnt;
+            // Rcpp::Rcout << g; 
+            // Rcpp::Rcout << y + d;
+        }while(arma::norm(old_g-g,2) / arma::norm(g,2) > 1e-10 && cnt < MAX_IT);
+
+        if(cnt == MAX_IT){
+           MoMALogger::warning("No convergence in fusion lasso prox (AMA).");
+        }
+        return y + d;
     }
  
 
