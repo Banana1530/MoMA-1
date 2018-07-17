@@ -307,7 +307,7 @@ arma::vec Fusion::group_soft_thre(const arma::vec &y, double lambda){
     return scale * y;
 };
 
-arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weight, bool ADMM){
+arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM){
 
     // This implementation uses ADMM
     // Reference: Algorithm 5 in 
@@ -318,18 +318,26 @@ arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weigh
     arma::mat w = arma::trimatu(weight,1);
     // beta subproblem: O(n)
     if(ADMM){
+        // ADMM
+        // TODO: step size;i momentum
+
+        // Using Genevera's paper notations
+        const arma::vec &y = x;
         int n = y.n_elem;
+        if(n == 2){
+            MoMALogger::error("Please use ordered fused lasso instead");
+        }
         double y_bar = arma::mean(y);
         arma::mat z(n,n);
         arma::mat u(n,n);
         arma::vec b(n);
-        arma::mat oldz;
+        arma::vec old_b;
         z.zeros();
         u.zeros();
         b.zeros();
         int cnt = 0;
         do{    
-            oldz = z;
+            old_b = b; // TODO: optimize
             cnt++;
             for(int i = 0; i < n; i++){
                 double part1 = arma::sum(z.row(i) + u.row(i));  // TODO: accelerate
@@ -351,9 +359,9 @@ arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weigh
             Rcpp::Rcout << cnt; 
             // Rcpp::Rcout << z;
         }
-        while(arma::norm(oldz - z,2) / arma::norm(z,2) > 1e-10 && cnt < MAX_IT);
+        while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
         if(cnt == MAX_IT){
-            MoMALogger::warning("No convergence in fusion lasso prox.");
+            MoMALogger::warning("No convergence in unordered fusion lasso prox (ADMM).");
         }
         // TODO: shrink stepsize
         return b;

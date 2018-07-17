@@ -117,7 +117,7 @@ public:
     Fusion();
     ~Fusion();
     arma::vec operator()(const arma::vec &x, double l){return arma::zeros<arma::vec>(1);}
-    arma::vec operator()(const arma::vec &y, double l, const arma::mat weight, bool ADMM = 1);
+    arma::vec operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM = 1);
     arma::vec group_soft_thre(const arma::vec &y, double lambda);    
 };
 #endif
