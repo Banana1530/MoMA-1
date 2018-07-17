@@ -356,7 +356,7 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
                     u(i,j) = u(i,j) + (z(i,j) - (b(i) - b(j)));
                 }
             }
-           // Rcpp::Rcout << cnt; 
+           Rcpp::Rcout << cnt; 
             // Rcpp::Rcout << z;
         }
         while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
@@ -369,44 +369,46 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
     else{
         // AMA
         int n = x.n_elem;
-        double nu = 1 / n;
-        arma::vec delta(n);
+        // TODO: choice of nu is not trivial. See Proposition 4.1 in 
+        // Splitting Methods for Convex Clustering, Chi and Range
+        double nu = 0.26;
+        arma::vec u(n);
         arma::mat lambda(n,n);
-        arma::mat g(n,n);
+        // arma::mat g(n,n);
 
-        delta.zeros();
+        u.zeros();
         lambda.zeros();
-        g.zeros();
+        // g.zeros();
         
-        arma::mat old_lambda;
+        arma::vec old_u;
         int cnt = 0;
         do{
             cnt++;
-            old_lambda = lambda;
-            for(int i = 0; i < n; i++){
-                double part1 = arma::sum(lambda.row(i));
-                double part2 = arma::sum(lambda.col(i));
-                delta(i) = part1 - part2;
-            }
             for(int i = 0; i < n; i++){
                 for(int j = i + 1; j < n; j++){
-                    g(i,j) = x(i) - x(j) + delta(i) - delta(j);
-                    lambda(i,j) = lambda(i,j) - nu * g(i,j);
+                    // g(i,j) = x(i) - x(j) + u(i) - u(j);
+                    lambda(i,j) = lambda(i,j) - nu * (u(i) - u(j));
                     if(std::abs(lambda(i,j)) > l * w(i,j)){
                         lambda(i,j) = l * w(i,j) * lambda(i,j) / std::abs(lambda(i,j));
                     }
                 }
             }
-            nu *= 0.9;
+            old_u = u;
+            for(int i = 0; i < n; i++){
+                double part1 = arma::sum(lambda.row(i));
+                double part2 = arma::sum(lambda.col(i));
+                u(i) = x(i) + part1 - part2;
+            }
+            
             Rcpp::Rcout << cnt;
-             Rcpp::Rcout << lambda; 
-             Rcpp::Rcout << delta;
-        }while(arma::norm(lambda-old_lambda,2) / arma::norm(old_lambda,2) > 1e-7 && cnt < MAX_IT);
+            // Rcpp::Rcout << lambda; 
+            // Rcpp::Rcout << u;
+        }while(arma::norm(u-old_u,2) / arma::norm(old_u,2) > 1e-10 && cnt < MAX_IT);
 
         if(cnt == MAX_IT){
            MoMALogger::warning("No convergence in unordered fusion lasso prox (AMA).");
         }
-        return x + delta;
+        return u;
     }
  
 
