@@ -356,7 +356,7 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
                     u(i,j) = u(i,j) + (z(i,j) - (b(i) - b(j)));
                 }
             }
-            Rcpp::Rcout << cnt; 
+           // Rcpp::Rcout << cnt; 
             // Rcpp::Rcout << z;
         }
         while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
@@ -367,43 +367,46 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         return b;
     }
     else{
-        int n = y.n_elem;
-        arma::vec d(n);
-        arma::mat u(n,n);
+        // AMA
+        int n = x.n_elem;
+        double nu = 1 / n;
+        arma::vec delta(n);
+        arma::mat lambda(n,n);
         arma::mat g(n,n);
 
-        d.zeros();
-        u.zeros();
+        delta.zeros();
+        lambda.zeros();
         g.zeros();
         
-        arma::mat old_g;
+        arma::mat old_lambda;
         int cnt = 0;
         do{
             cnt++;
-            old_g = g;
+            old_lambda = lambda;
             for(int i = 0; i < n; i++){
-                double part1 = arma::sum(u.row(i));
-                double part2 = arma::sum(u.col(i));
-                d(i) = part1 - part2;
+                double part1 = arma::sum(lambda.row(i));
+                double part2 = arma::sum(lambda.col(i));
+                delta(i) = part1 - part2;
             }
             for(int i = 0; i < n; i++){
                 for(int j = i + 1; j < n; j++){
-                    g(i,j) = y(i) - y(j) + d(i) - d(j);
-                    u(i,j) = u(i,j) - g(i,j);
-                    if(std::abs(u(i,j)) > l * w(i,j)){
-                        u(i,j) = l * w(i,j) * u(i,j) / std::abs(u(i,j));
+                    g(i,j) = x(i) - x(j) + delta(i) - delta(j);
+                    lambda(i,j) = lambda(i,j) - nu * g(i,j);
+                    if(std::abs(lambda(i,j)) > l * w(i,j)){
+                        lambda(i,j) = l * w(i,j) * lambda(i,j) / std::abs(lambda(i,j));
                     }
                 }
             }
+            nu *= 0.9;
             Rcpp::Rcout << cnt;
-            // Rcpp::Rcout << g; 
-            // Rcpp::Rcout << y + d;
-        }while(arma::norm(old_g-g,2) / arma::norm(g,2) > 1e-10 && cnt < MAX_IT);
+             Rcpp::Rcout << lambda; 
+             Rcpp::Rcout << delta;
+        }while(arma::norm(lambda-old_lambda,2) / arma::norm(old_lambda,2) > 1e-7 && cnt < MAX_IT);
 
         if(cnt == MAX_IT){
-           MoMALogger::warning("No convergence in fusion lasso prox (AMA).");
+           MoMALogger::warning("No convergence in unordered fusion lasso prox (AMA).");
         }
-        return y + d;
+        return x + delta;
     }
  
 
