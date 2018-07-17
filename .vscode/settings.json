@@ -1,6 +1,10 @@
 {
     "files.associations": {
+        "*.hpp": "diff",
         "random": "cpp",
-        "armadillo": "cpp"
+        "armadillo": "cpp",
+        "algorithm": "cpp",
+        "chrono": "cpp",
+        "complex": "cpp"
     }
 }
