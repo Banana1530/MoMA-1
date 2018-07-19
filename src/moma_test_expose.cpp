@@ -84,3 +84,16 @@ arma::vec test_prox_orderedfusion(const arma::vec &x,double l)
     OrderedFusedLasso a;
     return a(x,l);
 };
+
+// [[Rcpp::export]]
+arma::vec test_grp_soft_thre(const arma::vec &x,double l){
+    Fusion a;
+    return a.group_soft_thre(x,l);
+}
+
+// [[Rcpp::export]]
+arma::vec test_prox_fusion(const arma::vec &x,double l,const arma::mat w,bool ADMM)
+{
+    Fusion a;
+    return a(x,l,w,ADMM);
+};

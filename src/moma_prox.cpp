@@ -288,3 +288,76 @@ arma::vec OrderedFusedLasso::operator()(const arma::vec &x, double l){
     }
     return fg.find_beta_at(l);
 }
+
+/*
+* Fusion lasso
+*/
+Fusion::Fusion(){
+    MoMALogger::debug("Initializing a fusion lasso proximal operator object");
+};
+
+Fusion::~Fusion(){
+    MoMALogger::debug("Releasing a fusion lasso proximal operator object");
+};
+// TODO: test it
+arma::vec Fusion::group_soft_thre(const arma::vec &y, double lambda){
+    double norm = arma::sum(arma::square(y));
+    norm = sqrt(norm);
+    double scale = 1 - lambda / norm > 0 ? 1 - lambda / norm : 0;
+    return scale * y;
+};
+
+arma::vec Fusion::operator()(const arma::vec &y, double l, const arma::mat weight, bool ADMM){
+
+    // This implementation uses ADMM
+    // Reference: Algorithm 5 in 
+    // ADMM Algorithmic Regularization Paths for Sparse Statistical Machine Learning,
+    // Yue Hu, Eric C. Chi and Genevera I. Allen
+
+    const int MAX_IT = 10000;
+    // beta subproblem: O(n)
+    if(ADMM){
+        arma::mat w = arma::trimatu(weight,1);
+        int n = y.n_elem;
+        double y_bar = arma::mean(y);
+        arma::mat z(n,n);
+        arma::mat u(n,n);
+        arma::vec b(n);
+        arma::mat oldz;
+        z.zeros();
+        u.zeros();
+        b.zeros();
+        int cnt = 0;
+        do{    
+            oldz = z;
+            cnt++;
+            for(int i = 0; i < n; i++){
+                double part1 = arma::sum(z.row(i) + u.row(i));
+                double part2 = arma::sum(z.col(i) + u.col(i));
+                b(i) = ((y(i) + n * y_bar) + part1 - part2) / (n + 1);
+            }
+            // u and z subproblems: O(n(n-1)/2)
+            for(int i = 0; i < n; i++){
+                for(int j = i + 1; j < n; j++){
+                    // u
+                    double to_be_thres = b(i) - b(j) - u(i,j);
+                    double scale = (1 - l * w(i,j) / std::abs(to_be_thres)); // TODO
+                    if(scale < 0) scale = 0;
+                    z(i,j) = scale * to_be_thres;
+                    // z
+                    u(i,j) = u(i,j) + (z(i,j) - (b(i) - b(j)));
+                }
+            }
+            Rcpp::Rcout << cnt; 
+            // Rcpp::Rcout << z;
+        }
+        while(arma::norm(oldz - z,2) / arma::norm(z,2) > 1e-10 && cnt < MAX_IT);
+        if(cnt == MAX_IT){
+            MoMALogger::warning("No convergence in fusion lasso prox.");
+        }
+        // TODO: shrink stepsize
+        return b;
+    }
+ 
+
+}
