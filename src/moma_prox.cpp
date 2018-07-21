@@ -320,6 +320,19 @@ int tri_sums(const arma::mat &w, arma::vec &col_sums, arma::vec &row_sums, int n
     return 0;
 }
 
+// [[Rcpp::export]]
+int tri_lambda_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, int n){
+    arma::mat res(n,n);
+    for(int i = 0; i < n; i++){
+        for(int j = i + 1; j < n; j++){
+            double diff = lambda(i,j) - old_lambda(i,j);
+            lambda(i,j) += step * diff;
+            old_lambda(i,j) += diff;
+        }
+    }
+    return 0;
+}
+
 arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM){
     const int MAX_IT = 10000;
     arma::mat w = arma::trimatu(weight,1);
@@ -364,25 +377,26 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
             // u and z subproblems: O(n(n-1)/2)
             for(int i = 0; i < n; i++){
                 for(int j = i + 1; j < n; j++){
-                    // u
+                    // z
                     double to_be_thres = b(i) - b(j) - u(i,j);
                     double scale = (1 - l * w(i,j) / std::abs(to_be_thres)); // TODO
-                    if(scale < 0) scale = 0;
+                    if(scale < 0){
+                        scale = 0;
+                    };
                     z(i,j) = scale * to_be_thres;
-                    // z
+                    // u
                     u(i,j) = u(i,j) + (z(i,j) - (b(i) - b(j)));
                 }
             }
-           Rcpp::Rcout << cnt; 
-            // Rcpp::Rcout << z;
         }while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
 
+        // Check convergence
         if(cnt == MAX_IT){
             MoMALogger::warning("No convergence in unordered fusion lasso prox (ADMM).");
         }else{
             MoMALogger::debug("ADMM converges.");
         }
-        // TODO: shrink stepsize
+        // TODO: shrink stepsize, as is done in the paper
         return b;
     }
     else{
@@ -391,7 +405,7 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         // Splitting Methods for Convex Clustering
         // Eric C. Chi and Kenneth Lange†
         int n = x.n_elem;
-        // Choice of nu is not trivial. See Proposition 4.1 in 
+        // Choosing nu is not trivial. See Proposition 4.1 in 
         // Splitting Methods for Convex Clustering, Chi and Range
         arma::vec deg(n);
         for(int i = 0; i < n; i++){
@@ -410,30 +424,35 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
                 }
             }
         }
-        // Rcpp::Rcout << max_edge_deg;
-        // MoMALogger::error("here");
         double nu = 1.0 / (std::min(n,max_edge_deg));
         arma::vec u(n);
         arma::mat lambda(n,n);
-        // arma::mat g(n,n);
 
+        // Initialze
         u.zeros();
         lambda.zeros();
-        // g.zeros();
-        
+        double old_alpha = 1;
+        arma::mat old_lambda(n,n);
+        old_lambda.zeros();
         arma::vec old_u;
         int cnt = 0;
+
+        // Start iterating
         do{
             cnt++;
+            // lambda subproblem
             for(int i = 0; i < n; i++){
                 for(int j = i + 1; j < n; j++){
                     // g(i,j) = x(i) - x(j) + u(i) - u(j);
                     lambda(i,j) = lambda(i,j) - nu * (u(i) - u(j));
+                    // project onto the interval [- w_ij*lambda_ij, w_ij*lambda_ij]
                     if(std::abs(lambda(i,j)) > l * w(i,j)){
                         lambda(i,j) = l * w(i,j) * lambda(i,j) / std::abs(lambda(i,j));
                     }
                 }
             }
+
+            // u subproblem
             old_u = u;
             arma::vec lambda_row_sums(n);
             arma::vec lambda_col_sums(n);
@@ -443,12 +462,15 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
                 double part2 = lambda_col_sums(i);
                 u(i) = x(i) + part1 - part2;
             }
-            
-            Rcpp::Rcout << cnt;
-            // Rcpp::Rcout << lambda; 
-            // Rcpp::Rcout << u;
+
+            // Momemtum step
+            double alpha = (1 + std::sqrt(old_alpha)) / 2;
+            tri_lambda_momentum(lambda,old_lambda,old_alpha / alpha,n);
+            old_alpha = alpha;
+            old_lambda = lambda;
         }while(arma::norm(u-old_u,2) / arma::norm(old_u,2) > 1e-10 && cnt < MAX_IT);
 
+        // Check convergence
         if(cnt == MAX_IT){
             MoMALogger::warning("No convergence in unordered fusion lasso prox (AMA).");
         }else{
