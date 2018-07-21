@@ -307,18 +307,28 @@ arma::vec Fusion::group_soft_thre(const arma::vec &y, double lambda){
     return scale * y;
 };
 
+int tri_sums(const arma::mat &w, arma::vec &col_sums, arma::vec &row_sums, int n){
+    // col_sums and row_sums should be initialzied by zeros.
+    col_sums.zeros();
+    row_sums.zeros();
+    for(int i = 0; i < n; i++){
+        for(int j = i + 1; j < n; j++){
+            row_sums(i) += w(i,j);
+            col_sums(j) += w(i,j);
+        }
+    }
+    return 0;
+}
+
 arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM){
-
-    // This implementation uses ADMM
-    // Reference: Algorithm 5 in 
-    // ADMM Algorithmic Regularization Paths for Sparse Statistical Machine Learning,
-    // Yue Hu, Eric C. Chi and Genevera I. Allen
-
     const int MAX_IT = 10000;
     arma::mat w = arma::trimatu(weight,1);
     // beta subproblem: O(n)
     if(ADMM){
         // ADMM
+        // Reference: Algorithm 5 in 
+        // ADMM Algorithmic Regularization Paths for Sparse Statistical Machine Learning,
+        // Yue Hu, Eric C. Chi and Genevera I. Allen
         // TODO: step size;i momentum
 
         // Using Genevera's paper notations
@@ -339,9 +349,16 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         do{    
             old_b = b; // TODO: optimize
             cnt++;
+            arma::vec z_row_sums(n);
+            arma::vec z_col_sums(n);
+            arma::vec u_row_sums(n);
+            arma::vec u_col_sums(n);
+            tri_sums(u,u_col_sums,u_row_sums,n);
+            tri_sums(z,z_col_sums,z_row_sums,n);
+            // beta subproblem: O(n)
             for(int i = 0; i < n; i++){
-                double part1 = arma::sum(z.row(i) + u.row(i));  // TODO: accelerate
-                double part2 = arma::sum(z.col(i) + u.col(i));
+                double part1 = z_row_sums(i) + u_row_sums(i);
+                double part2 = z_col_sums(i) + u_col_sums(i);
                 b(i) = ((y(i) + n * y_bar) + part1 - part2) / (n + 1);
             }
             // u and z subproblems: O(n(n-1)/2)
@@ -358,20 +375,44 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
             }
            Rcpp::Rcout << cnt; 
             // Rcpp::Rcout << z;
-        }
-        while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
+        }while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
+
         if(cnt == MAX_IT){
             MoMALogger::warning("No convergence in unordered fusion lasso prox (ADMM).");
+        }else{
+            MoMALogger::debug("ADMM converges.");
         }
         // TODO: shrink stepsize
         return b;
     }
     else{
         // AMA
+        // Reference: Algorithm 3 Fast AMA in
+        // Splitting Methods for Convex Clustering
+        // Eric C. Chi and Kenneth Lange†
         int n = x.n_elem;
-        // TODO: choice of nu is not trivial. See Proposition 4.1 in 
+        // Choice of nu is not trivial. See Proposition 4.1 in 
         // Splitting Methods for Convex Clustering, Chi and Range
-        double nu = 0.26;
+        arma::vec deg(n);
+        for(int i = 0; i < n; i++){
+            for(int j = i + 1; j < n; j++){
+                if(w(i,j) > 0){
+                    deg(i)++;
+                    deg(j)++;
+                }
+            }
+        }
+        int max_edge_deg = -1;
+        for(int i = 0; i < n; i++){
+            for(int j = i + 1; j < n; j++){
+                if(w(i,j) > 0){
+                    max_edge_deg = std::max(deg(i)+deg(j),(double)max_edge_deg);
+                }
+            }
+        }
+        // Rcpp::Rcout << max_edge_deg;
+        // MoMALogger::error("here");
+        double nu = 1.0 / (std::min(n,max_edge_deg));
         arma::vec u(n);
         arma::mat lambda(n,n);
         // arma::mat g(n,n);
@@ -394,9 +435,12 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
                 }
             }
             old_u = u;
+            arma::vec lambda_row_sums(n);
+            arma::vec lambda_col_sums(n);
+            tri_sums(lambda,lambda_col_sums,lambda_row_sums,n);
             for(int i = 0; i < n; i++){
-                double part1 = arma::sum(lambda.row(i));
-                double part2 = arma::sum(lambda.col(i));
+                double part1 = lambda_row_sums(i);
+                double part2 = lambda_col_sums(i);
                 u(i) = x(i) + part1 - part2;
             }
             
@@ -406,7 +450,9 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         }while(arma::norm(u-old_u,2) / arma::norm(old_u,2) > 1e-10 && cnt < MAX_IT);
 
         if(cnt == MAX_IT){
-           MoMALogger::warning("No convergence in unordered fusion lasso prox (AMA).");
+            MoMALogger::warning("No convergence in unordered fusion lasso prox (AMA).");
+        }else{
+            MoMALogger::debug("AMA converges.");
         }
         return u;
     }
