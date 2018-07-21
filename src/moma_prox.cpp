@@ -292,15 +292,18 @@ arma::vec OrderedFusedLasso::operator()(const arma::vec &x, double l){
 /*
 * Fusion lasso
 */
-Fusion::Fusion(const arma::mat &input_w,bool input_ADMM){
+Fusion::Fusion(const arma::mat &input_w,bool input_ADMM,bool input_acc){
     // w should be symmetric, and have zero diagonal elements.
     // We only store the upper half of the matrix w_ij, j >= i+1.
+
     ADMM = input_ADMM;
+    acc = input_acc;
     int n_col = input_w.n_cols;
     int n_row = input_w.n_rows;
     if(n_col != n_row){
         MoMALogger::error("Weight matrix should have the same dimensions");
     }
+    weight.set_size(n_col,n_col);
     for(int i = 0; i < n_col; i++){
         for(int j = i + 1; j < n_col; j++){
             weight(i,j) = input_w(i,j);
@@ -328,13 +331,13 @@ int tri_sums(const arma::mat &w, arma::vec &col_sums, arma::vec &row_sums, int n
     return 0;
 }
 
-int tri_lambda_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, int n){
+int tri_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, int n){
     arma::mat res(n,n);
     for(int i = 0; i < n; i++){
         for(int j = i + 1; j < n; j++){
             double diff = lambda(i,j) - old_lambda(i,j);
             lambda(i,j) += step * diff;
-            old_lambda(i,j) += diff;
+            old_lambda(i,j) = lambda(i,j);
         }
     }
     return 0;
@@ -362,9 +365,15 @@ arma::vec Fusion::operator()(const arma::vec &x, double l){
         arma::mat u(n,n);
         arma::vec b(n);
         arma::vec old_b;
+        arma::mat old_z(n,n);
+        arma::mat old_u(n,n);
+        double old_alpha = 1;
         z.zeros();
+        old_z.zeros();
         u.zeros();
+        old_u.zeros();
         b.zeros();
+        old_b.zeros();
         int cnt = 0;
         do{
             old_b = b; // TODO: optimize
@@ -394,6 +403,17 @@ arma::vec Fusion::operator()(const arma::vec &x, double l){
                     // u
                     u(i,j) = u(i,j) + (z(i,j) - (b(i) - b(j)));
                 }
+            }
+            if(acc){
+                MoMALogger::error("Not provided yet");
+                double alpha = (1 + std::sqrt(old_alpha)) / 2;
+                z += (old_alpha / alpha) * (z - old_z);
+                old_z = z;
+                u += (old_alpha / alpha) * (u - old_u);
+                old_u = u;
+                // tri_momentum(z,old_z,old_alpha / alpha,n);
+                // tri_momentum(u,old_u,old_alpha / alpha,n);
+                old_alpha = alpha;
             }
         }while(arma::norm(old_b - b,2) / arma::norm(old_b,2) > 1e-10 && cnt < MAX_IT);
 
@@ -468,12 +488,11 @@ arma::vec Fusion::operator()(const arma::vec &x, double l){
                 double part2 = lambda_col_sums(i);
                 u(i) = x(i) + part1 - part2;
             }
-
-            // Momemtum step
-            double alpha = (1 + std::sqrt(old_alpha)) / 2;
-            tri_lambda_momentum(lambda,old_lambda,old_alpha / alpha,n);
-            old_alpha = alpha;
-            old_lambda = lambda;
+            if(acc){// Momemtum step
+                double alpha = (1 + std::sqrt(old_alpha)) / 2;
+                tri_momentum(lambda,old_lambda,old_alpha / alpha,n);
+                old_alpha = alpha;
+            }
         }while(arma::norm(u-old_u,2) / arma::norm(old_u,2) > 1e-10 && cnt < MAX_IT);
 
         // Check convergence

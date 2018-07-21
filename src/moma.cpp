@@ -64,7 +64,7 @@ public:
 
     void check_valid();
     Solver string_to_SolverT(const std::string &s); // String to solver type {ISTA,FISTA}
-    Prox* string_to_Proxptr(std::string &s,double gamma,const arma::vec &group,const arma::mat &w, bool ADMM,bool nonneg);
+    Prox* string_to_Proxptr(std::string &s,double gamma,const arma::vec &group,const arma::mat &w, bool ADMM, bool acc, bool nonneg);
  
 
     // Parse user input into a MoMA object which defines the problem and algorithm
@@ -102,6 +102,8 @@ public:
         const arma::mat &w_v,
         bool ADMM_u,
         bool ADMM_v,
+        bool acc_u,
+        bool acc_v,
         /*
          * Algorithm parameters:
          */
@@ -154,8 +156,8 @@ public:
         u = U.col(0);
 
         // Step 3: Construct proximal operators
-        prox_u = string_to_Proxptr(P_u,gamma,group_u,w_u,ADMM_u,nonneg_u);
-        prox_v = string_to_Proxptr(P_v,gamma,group_v,w_v,ADMM_v,nonneg_v);
+        prox_u = string_to_Proxptr(P_u,gamma,group_u,w_u,ADMM_u,acc_u,nonneg_u);
+        prox_v = string_to_Proxptr(P_v,gamma,group_v,w_v,ADMM_v,acc_v,nonneg_v);
     };
 
     void fit(); // Implemented below
@@ -198,7 +200,7 @@ Solver MoMA::string_to_SolverT(const std::string &s){
 
 Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
                             const arma::vec &group,
-                            const arma::mat &w, bool ADMM,
+                            const arma::mat &w, bool ADMM,bool acc,
                             bool nonneg){
     // IMPORTANT: this must be freed somewhere
     for (auto & c: s){
@@ -250,7 +252,7 @@ Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
             MoMALogger::error("Non-negative unordered fusion lasso is not implemented!");
         }
         else{
-            res = new Fusion(w,ADMM);
+            res = new Fusion(w,ADMM,acc);
         }
     }
     else{
@@ -275,6 +277,8 @@ Rcpp::List sfpca(
     arma::mat w_v = Rcpp::IntegerMatrix::create(0),
     bool ADMM_u = 0,
     bool ADMM_v = 0,
+    bool acc_u = 1,
+    bool acc_v = 1,
     bool nonneg_u = 0,
     bool nonneg_v = 0,
     arma::vec group_u = Rcpp::IntegerVector::create(0),
@@ -306,6 +310,8 @@ Rcpp::List sfpca(
               w_v,
               ADMM_u,
               ADMM_v,
+              acc_u,
+              acc_v,
               /* algorithm parameters */
               EPS,
               MAX_ITER,
