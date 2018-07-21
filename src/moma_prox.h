@@ -112,12 +112,11 @@ public:
 
 class Fusion: public Prox{
 private:
-    arma::mat w;
+    arma::mat weight;
+    bool ADMM;
 public:
-    Fusion();
+    Fusion(const arma::mat &input_w = arma::zeros<arma::mat>(0,0),bool input_ADMM = 1);
     ~Fusion();
-    arma::vec operator()(const arma::vec &x, double l){return arma::zeros<arma::vec>(1);}
-    arma::vec operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM = 1);
-    arma::vec group_soft_thre(const arma::vec &y, double lambda);    
+    arma::vec operator()(const arma::vec &x, double l);
 };
 #endif

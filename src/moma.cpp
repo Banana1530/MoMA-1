@@ -64,7 +64,7 @@ public:
 
     void check_valid();
     Solver string_to_SolverT(const std::string &s); // String to solver type {ISTA,FISTA}
-    Prox* string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group,bool nonneg);
+    Prox* string_to_Proxptr(std::string &s,double gamma,const arma::vec &group,const arma::mat &w, bool ADMM,bool nonneg);
  
 
     // Parse user input into a MoMA object which defines the problem and algorithm
@@ -95,6 +95,13 @@ public:
         arma::mat Omega_v,
         double i_alpha_u,    // Smoothing levels
         double i_alpha_v,
+        /*
+         * unordered fusion
+         */
+        const arma::mat &w_u,
+        const arma::mat &w_v,
+        bool ADMM_u,
+        bool ADMM_v,
         /*
          * Algorithm parameters:
          */
@@ -147,8 +154,8 @@ public:
         u = U.col(0);
 
         // Step 3: Construct proximal operators
-        prox_u = string_to_Proxptr(P_u,gamma,group_u,nonneg_u);
-        prox_v = string_to_Proxptr(P_v,gamma,group_v,nonneg_v);
+        prox_u = string_to_Proxptr(P_u,gamma,group_u,w_u,ADMM_u,nonneg_u);
+        prox_v = string_to_Proxptr(P_v,gamma,group_v,w_v,ADMM_v,nonneg_v);
     };
 
     void fit(); // Implemented below
@@ -189,8 +196,14 @@ Solver MoMA::string_to_SolverT(const std::string &s){
     return res;
 }
 
-Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec &group,bool nonneg){
+Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
+                            const arma::vec &group,
+                            const arma::mat &w, bool ADMM,
+                            bool nonneg){
     // IMPORTANT: this must be freed somewhere
+    for (auto & c: s){
+        c = toupper(c);
+    }
     Prox* res = new NullProx();
     if (s.compare("LASSO") == 0){
         if(nonneg){
@@ -232,6 +245,14 @@ Prox* MoMA::string_to_Proxptr(const std::string &s,double gamma,const arma::vec 
             res = new OrderedFusedLasso();
         }
     }
+    else if(s.compare("UNORDEREDFUSION")){
+        if(nonneg){
+            MoMALogger::error("Non-negative unordered fusion lasso is not implemented!");
+        }
+        else{
+            res = new Fusion(w,ADMM);
+        }
+    }
     else{
         MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `NullProx` by default");
     }
@@ -250,6 +271,10 @@ Rcpp::List sfpca(
     double lambda_u = 0,
     double lambda_v = 0,
     double gamma = 3.7,
+    arma::mat w_u = Rcpp::IntegerMatrix::create(0),
+    arma::mat w_v = Rcpp::IntegerMatrix::create(0),
+    bool ADMM_u = 0,
+    bool ADMM_v = 0,
     bool nonneg_u = 0,
     bool nonneg_v = 0,
     arma::vec group_u = Rcpp::IntegerVector::create(0),
@@ -276,6 +301,11 @@ Rcpp::List sfpca(
               Omega_v,
               alpha_u,
               alpha_v,
+              /* unordered fusion*/
+              w_u,
+              w_v,
+              ADMM_u,
+              ADMM_v,
               /* algorithm parameters */
               EPS,
               MAX_ITER,

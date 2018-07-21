@@ -292,21 +292,29 @@ arma::vec OrderedFusedLasso::operator()(const arma::vec &x, double l){
 /*
 * Fusion lasso
 */
-Fusion::Fusion(){
+Fusion::Fusion(const arma::mat &input_w,bool input_ADMM){
+    // w should be symmetric, and have zero diagonal elements.
+    // We only store the upper half of the matrix w_ij, j >= i+1.
+    ADMM = input_ADMM;
+    int n_col = input_w.n_cols;
+    int n_row = input_w.n_rows;
+    if(n_col != n_row){
+        MoMALogger::error("Weight matrix should have the same dimensions");
+    }
+    for(int i = 0; i < n_col; i++){
+        for(int j = i + 1; j < n_col; j++){
+            weight(i,j) = input_w(i,j);
+        }
+    }
     MoMALogger::debug("Initializing a fusion lasso proximal operator object");
 };
 
 Fusion::~Fusion(){
     MoMALogger::debug("Releasing a fusion lasso proximal operator object");
 };
-// TODO: test it
-arma::vec Fusion::group_soft_thre(const arma::vec &y, double lambda){
-    double norm = arma::sum(arma::square(y));
-    norm = sqrt(norm);
-    double scale = 1 - lambda / norm > 0 ? 1 - lambda / norm : 0;
-    return scale * y;
-};
 
+// Finds the columen sum and row sums of a upper triangular matrix,
+// whose diagonal elements are all zero.
 int tri_sums(const arma::mat &w, arma::vec &col_sums, arma::vec &row_sums, int n){
     // col_sums and row_sums should be initialzied by zeros.
     col_sums.zeros();
@@ -320,7 +328,6 @@ int tri_sums(const arma::mat &w, arma::vec &col_sums, arma::vec &row_sums, int n
     return 0;
 }
 
-// [[Rcpp::export]]
 int tri_lambda_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, int n){
     arma::mat res(n,n);
     for(int i = 0; i < n; i++){
@@ -333,7 +340,7 @@ int tri_lambda_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, i
     return 0;
 }
 
-arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weight, bool ADMM){
+arma::vec Fusion::operator()(const arma::vec &x, double l){
     const int MAX_IT = 10000;
     arma::mat w = arma::trimatu(weight,1);
     // beta subproblem: O(n)
@@ -359,7 +366,7 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         u.zeros();
         b.zeros();
         int cnt = 0;
-        do{    
+        do{
             old_b = b; // TODO: optimize
             cnt++;
             arma::vec z_row_sums(n);
@@ -443,7 +450,6 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
             // lambda subproblem
             for(int i = 0; i < n; i++){
                 for(int j = i + 1; j < n; j++){
-                    // g(i,j) = x(i) - x(j) + u(i) - u(j);
                     lambda(i,j) = lambda(i,j) - nu * (u(i) - u(j));
                     // project onto the interval [- w_ij*lambda_ij, w_ij*lambda_ij]
                     if(std::abs(lambda(i,j)) > l * w(i,j)){
@@ -478,6 +484,4 @@ arma::vec Fusion::operator()(const arma::vec &x, double l, const arma::mat weigh
         }
         return u;
     }
- 
-
 }
