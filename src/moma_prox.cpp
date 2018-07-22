@@ -346,6 +346,14 @@ int tri_momentum(arma::mat &lambda, arma::mat &old_lambda, double step, int n){
 arma::vec Fusion::operator()(const arma::vec &x, double l){
     const int MAX_IT = 10000;
     arma::mat w = arma::trimatu(weight,1);
+    int n = x.n_elem;
+    if(n == 2){
+        MoMALogger::error("Please use ordered fused lasso instead");
+    }
+    if(n < 20){
+        ADMM = 1;
+        acc = 0;    // TODO: when we provide acc ADMM
+    }
     // beta subproblem: O(n)
     if(ADMM){
         // ADMM
@@ -356,10 +364,7 @@ arma::vec Fusion::operator()(const arma::vec &x, double l){
 
         // Using Genevera's paper notations
         const arma::vec &y = x;
-        int n = y.n_elem;
-        if(n == 2){
-            MoMALogger::error("Please use ordered fused lasso instead");
-        }
+        
         double y_bar = arma::mean(y);
         arma::mat z(n,n);
         arma::mat u(n,n);
