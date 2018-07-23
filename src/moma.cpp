@@ -185,10 +185,7 @@ void MoMA::check_valid(){
     MoMALogger::info("Checking input validity");
 }
 
-Solver MoMA::string_to_Solver(std::string &s){
-    for (auto & c: s){
-        c = toupper(c);
-    }
+Solver MoMA::string_to_SolverT(std::string &s){
     Solver res = Solver::ISTA;
     // TODO: capitalize s to be more robust to user-error
     if (s.compare("ISTA") == 0)
@@ -206,9 +203,6 @@ Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
                             const arma::mat &w, bool ADMM,bool acc,
                             bool nonneg){
     // IMPORTANT: this must be freed somewhere
-    for (auto & c: s){
-        c = toupper(c);
-    }
     Prox* res = new NullProx();
     if (s.compare("LASSO") == 0){
         if(nonneg){
@@ -265,30 +259,30 @@ Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
 }
 
 // [[Rcpp::export]]
-Rcpp::List sfpca(
-    const arma::mat& X,
-    arma::mat Omega_u, // Default values for these matrices should be set in R
-    arma::mat Omega_v,
-    double alpha_u = 0,
-    double alpha_v = 0,
-    std::string P_u = "LASSO",
-    std::string P_v = "LASSO",
-    double lambda_u = 0,
-    double lambda_v = 0,
-    double gamma = 3.7,
-    arma::mat w_u = Rcpp::IntegerMatrix::create(0),
-    arma::mat w_v = Rcpp::IntegerMatrix::create(0),
-    bool ADMM_u = 0,
-    bool ADMM_v = 0,
-    bool acc_u = 1,
-    bool acc_v = 1,
-    bool nonneg_u = 0,
-    bool nonneg_v = 0,
-    arma::vec group_u = Rcpp::IntegerVector::create(0),
-    arma::vec group_v = Rcpp::IntegerVector::create(0),
-    double EPS = 1e-6,
-    long MAX_ITER = 1e+3,
-    std::string solver = "ISTA"){
+Rcpp::List cpp_sfpca(
+    const arma::mat &X,
+    const arma::mat &w_v,
+    const arma::mat &w_u,
+    const arma::mat &Omega_u, // Default values for these matrices should be set in R
+    const arma::mat &Omega_v,
+    double alpha_u,
+    double alpha_v,
+    double lambda_u,
+    double lambda_v,
+    std::string P_u,
+    std::string P_v,
+    double gamma,
+    bool ADMM_u,
+    bool ADMM_v,
+    bool acc_u,
+    bool acc_v,
+    bool nonneg_u,
+    bool nonneg_v,
+    arma::vec group_u,
+    arma::vec group_v,
+    double EPS,
+    long MAX_ITER,
+    std::string solver){
 
     MoMA model(X,
               /* sparsity */
