@@ -244,7 +244,7 @@ Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
             res = new OrderedFusedLasso();
         }
     }
-    else if(s.compare("UNORDEREDFUSION")){
+    else if(s.compare("UNORDEREDFUSION") == 0){
         if(nonneg){
             MoMALogger::error("Non-negative unordered fusion lasso is not implemented!");
         }
@@ -253,7 +253,7 @@ Prox* MoMA::string_to_Proxptr(std::string &s,double gamma,
         }
     }
     else{
-        MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `NullProx` by default");
+        MoMALogger::warning("Your sparse penalty is not provided by us/specified by you! Use `NullProx` by default: ") << s;
     }
     return res;
 }
