@@ -7,7 +7,7 @@ test_that("Find means of everything when lambda is Large enough and the graph is
     set.seed(43)
     rep <- 10
     large.lambda <- 10000
-    for(p in c(3,20,100)){
+    for(p in c(5,100)){
         y <- runif(p)
         w <- matrix(rep(0,p*p),p,byrow = T)
         for(i in 1:p-1){
@@ -20,8 +20,8 @@ test_that("Find means of everything when lambda is Large enough and the graph is
             res.AMA.acc = test_prox_fusion(y,large.lambda,w,ADMM=FALSE,acc=TRUE)
             res.ADMM = test_prox_fusion(y,large.lambda,w,ADMM=TRUE,acc=FALSE)
             for(j in c(res.AMA,
-                          res.AMA.acc,
-                          res.ADMM)){
+                       res.AMA.acc,
+                       res.ADMM)){
                 expect_equal(j,mean(y))
             }
             print(i)
@@ -42,7 +42,6 @@ test_that("Find means of connected components when lambda is Large enough", {
         w[7,8] = runif(1) + 1
         w[7,9] = runif(1) + 1
         for(i in 1:rep){
-            print(i)
             y <- 10 * runif(p)
             res.AMA.unacc = test_prox_fusion(y,large.lambda,w,ADMM=FALSE,acc=TRUE)
             res.AMA.acc = test_prox_fusion(y,large.lambda,w,ADMM=FALSE,acc=TRUE)
