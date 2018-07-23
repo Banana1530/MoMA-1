@@ -63,7 +63,7 @@ public:
     }
 
     void check_valid();
-    Solver string_to_SolverT(const std::string &s); // String to solver type {ISTA,FISTA}
+    Solver string_to_SolverT(std::string &s); // String to solver type {ISTA,FISTA}
     Prox* string_to_Proxptr(std::string &s,double gamma,const arma::vec &group,const arma::mat &w, bool ADMM, bool acc, bool nonneg);
  
 
@@ -185,7 +185,10 @@ void MoMA::check_valid(){
     MoMALogger::info("Checking input validity");
 }
 
-Solver MoMA::string_to_SolverT(const std::string &s){
+Solver MoMA::string_to_Solver(std::string &s){
+    for (auto & c: s){
+        c = toupper(c);
+    }
     Solver res = Solver::ISTA;
     // TODO: capitalize s to be more robust to user-error
     if (s.compare("ISTA") == 0)
