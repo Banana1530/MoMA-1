@@ -13,10 +13,13 @@
 #'   \item{\code{\link{moma_l1tf}}}: piece-wise quadratic
 #'   \item{\code{\link{moma_cluster}}}: structured sparsity
 #' }
-#' These functions specify the value of the \code{u/v/x/y_sparse} argument in functions like
-#' \code{moma_sfpca}, \code{moma_sfcca} and \code{moma_sflda}. They should be called with
-#' prefix "\code{moma_}". All functions share
-#' two common parameters: \code{lambda} and \code{select_scheme}.
+#' These functions specify the value of the \code{u_sparse,v_sparse} arguments in the
+#'  \code{moma_*pca} series of functions, and the \code{x_sparse,y_sparse} arguments
+#' in the \code{moma_*cca} and \code{moma_*lda} series of functions.
+#'
+#' All functions
+#' above share two common parameters: \code{lambda} and \code{select_scheme}, which are
+#' described in the Arguments section below.
 #' @name moma_sparsity_options
 #' @param ... Force users to specify arguments by names.
 #' @param lambda A vector containing penalty values
@@ -43,8 +46,8 @@ NULL
 #' Introduction to selection schemes in MoMA
 #'
 #' Please see the description of the argument \code{select_scheme} in
-#' \code{\link{moma_sparsity_options}}. The \code{select_scheme}
-#' present in functions listed in \code{\link{moma_sparsity_options}}, and the function
+#' \code{\link{moma_sparsity_options}}. The \code{select_scheme} argument
+#' presents in functions listed in \code{\link{moma_sparsity_options}}, and the function
 #' \code{\link{moma_smoothness}}.
 #' @name select_scheme
 NULL
@@ -191,6 +194,10 @@ cluster <- function(..., w = NULL, ADMM = FALSE,
 
 #' Algorithm settings for solving the penalized SVD problem
 #'
+#' This function is used to specify the \code{pg_settings} argument
+#' in the \code{moma_*pca}, \code{moma_*cca}, and \code{moma_*ldaa}
+#' types of functions.
+#'
 #' To find an (approximate) solution to a penalized SVD (Singular Value Decomposition) problem is to solve two
 #' penalized regression problems iteratively (outer loop). Each penalized regression (inner loop)
 #' is solved using one of the three algorithms: ISTA (Iterative Shrinkage-Thresholding Algorithm),
@@ -261,8 +268,8 @@ moma_empty <- create_moma_sparsity_func(empty)
 #' LASSO (least absolute shrinkage and selection operator)
 #'
 #' Use this function to set the penalty function to LASSO
-#' \deqn{\lambda \sum \| x_{i} \|_1 ,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}.
+#' \deqn{\lambda \sum | x_{i} | = \lambda \| x \|_1 ,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
 #'
 #' @param ... Forces users to specify all arguments by name.
 #' @param non_negative A Boolean value. Set \code{TRUE} to add non-negativity
@@ -281,9 +288,11 @@ moma_lasso <- create_moma_sparsity_func(lasso)
 #' MCP (minimax concave penalty)
 #'
 #' Use this function to set the penalty function to MCP
-#' \deqn{\lambda P (x; \gamma),}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}, \eqn{P} is
-#' determined by \eqn{\gamma}.
+#' \deqn{ P (x; \lambda, \gamma) =
+#' \left\{\begin{array}{ll}{\lambda|x|-\frac{x^{2}}{2 \gamma},} & {
+#' \text { if }|x| \leq \gamma \lambda} \\ {\frac{1}{2} \gamma
+#' \lambda^{2},} & {\text { if }|x|>\gamma \lambda}\end{array}\right.,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
 #' @param ... Forces users to specify all arguments by name.
 #' @param gamma Non-convexity. Must be larger than 1.
 #' @param non_negative A Boolean value. Set to \code{TRUE} to add non-negativity
@@ -302,9 +311,11 @@ moma_mcp <- create_moma_sparsity_func(mcp)
 #' SCAD (smoothly clipped absolute deviation)
 #'
 #' Use this function to set the penalty function to SCAD
-#' \deqn{\lambda P (x; \gamma) ,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}, \eqn{P} is
-#' determined by \eqn{\gamma}.
+#' \deqn{ P (x; \lambda, \gamma) = \left\{\begin{array}{ll}{
+#' \lambda|x|} & {\text { if }|x| \leq \lambda} \\ {\frac{2 \gamma \lambda|x|-x^{2}-
+#' \lambda^{2}}{2(\gamma-1)}} & {\text { if } \lambda<|x|<\gamma \lambda} \\
+#' {\frac{\lambda^{2}(\gamma+1)}{2}} & {\text { if }|x| \geq \gamma \lambda}\end{array}\right.,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
 #'
 #' @param ... Forces users to specify all arguments by name.
 #' @param gamma Non-convexity. Must be larger than 2.
@@ -339,8 +350,8 @@ moma_slope <- create_moma_sparsity_func(slope)
 #' Group LASSO
 #'
 #' Use this function to set the penalty function to group lasso
-#' \deqn{\lambda \sum_{g \in Group} \| x_g \|,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}, \eqn{\|x_g\|} is
+#' \deqn{\lambda \sum_{g \in Group} \| x_g \|_1,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below, \eqn{x_g} is
 #' the vector comprised of elements of \eqn{x} picked out by the indices set \eqn{g}.
 #'
 #' @param ... Forces users to specify all arguments by name.
@@ -362,8 +373,8 @@ moma_grplasso <- create_moma_sparsity_func(grplasso)
 #' Fused LASSO
 #'
 #' Use this function to set the penalty function to fused lasso
-#' \deqn{\lambda \sum \| x_{i} - x_{i-1} \|,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}.
+#' \deqn{\lambda \sum | x_{i} - x_{i-1} |,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
 #' @param ... Forces users to specify all arguments by name.
 #' @param algo A string being either "path" or "dp". Defaults to "path". Partial matching
 #' is supported. Two solving algorithms
@@ -391,15 +402,16 @@ moma_fusedlasso <- create_moma_sparsity_func(fusedlasso)
 #' Use this function to set the penalty function to l1 trend filtering. An
 #' important special case is when \eqn{k=1}. In this case the penalty
 #' term becomes
-#' \deqn{\lambda \sum \| x_{i-1} - 2x_{i} + x_{i+1} \|,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}.
-#' For other values of \eqn{k} please refer to the following table:
-#' \tabular{llll}{
-#' k = 0                \tab k = 1              \tab k = 2                \tab ... \cr
-#' piecewise constant \tab peicewise linear \tab piecewise quadratic \tab ...
-#' }
+#' \deqn{\lambda \sum | x_{i-1} - 2x_{i} + x_{i+1} |,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
+#'
 #' The general formula of the penalty term for \eqn{k \in N} can be found in
-#' the paper cited in Reference.
+#' the paper cited in Reference. For other values of \eqn{k} please refer to the following table:
+#' \tabular{llll}{
+#'   \tab \eqn{k = 0} \tab \eqn{k = 1} \tab \eqn{k = 2}
+#' \cr
+#'  Type of sparsity \tab piecewise constant \tab peicewise linear \tab piecewise quadratic
+#' }
 #'
 #' @param ... Forces users to specify all arguments by name.
 #' @param l1tf_k Use (\eqn{k+1})-difference matrix in trend filtering. Note \eqn{k = 0}
@@ -416,9 +428,9 @@ moma_l1tf <- create_moma_sparsity_func(l1tf)
 #' Sparse fused LASSO
 #'
 #' Use this function to set the penalty function to sparse fused lasso
-#' \deqn{\lambda_1 \sum \| x_{i} - x_{i-1} \| + \lambda_2 \sum \|x_{i} \| ,}
-#' where \eqn{\lambda_} is set by \code{lambda_u/v} in the function \code{moma_svd}, and \eqn{\lambda_2}
-#' is specified in here.
+#' \deqn{\lambda_1 \sum | x_{i} - x_{i-1} | + \lambda_2 \sum |x_{i} | ,}
+#' where \eqn{\lambda_1} is set by the \code{lambda} argument below, and \eqn{\lambda_2}
+#' is specified in by the \code{lambda_2} argument.
 #'
 #' @param ... Forces users to specify all arguments by name.
 #' @param lambda2 A scalar. The level of penalty on the absolute values of the coefficients.
@@ -435,8 +447,8 @@ moma_spfusedlasso <- create_moma_sparsity_func(spfusedlasso)
 #' Cluster penalty
 #'
 #' Use this function to set the penalty function to
-#' \deqn{\lambda \sum w_{ij} \| x_{i} - x_{j} \|,}
-#' where \eqn{\lambda} is set by \code{lambda_u/v} in the function \code{moma_svd}.
+#' \deqn{\lambda \sum w_{ij} | x_{i} - x_{j} |,}
+#' where \eqn{\lambda} is set by the \code{lambda} argument below.
 #'
 #' @param ... Forces users to specify all arguments by name.
 #' @param w A symmetric square matrix. \code{w[i, j]} is the \eqn{w_{ij}} described above.
@@ -459,8 +471,9 @@ moma_cluster <- create_moma_sparsity_func(cluster)
 
 #' Smoothness-inducing Term
 #'
-#' This function specifies the value of the \code{u/v/x/y_smooth} argument in functions like
-#' \code{moma_sfpca}, \code{moma_sfcca} and \code{moma_sflda}.
+#' This function specifies the value of the \code{u_smooth,v_smooth} arguments in the
+#'  \code{moma_*pca} series of functions, and the \code{x_smooth,y_smooth} arguments
+#' in the \code{moma_*cca} and \code{moma_*lda} series of functions.
 #' @param Omega A matrix of appropriate size. A common choice is the second difference matrix.
 #' See \code{\link{second_diff_mat}}.
 #' @param alpha A vector containing penalty values
